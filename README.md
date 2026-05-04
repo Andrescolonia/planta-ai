@@ -3,130 +3,113 @@
 MVP local de una plataforma web para apoyo al personal de mantenimiento de zonas
 verdes de la Universidad Santiago de Cali.
 
-La solucion se esta construyendo con:
+La solucion permite subir fotografias de plantas, analizarlas en modo demo,
+guardar casos, consultar historial, revisar zonas verdes y generar reportes
+imprimibles. No requiere nube, servicios pagos, Docker ni infraestructura
+externa.
+
+## Stack
 
 - Frontend: React + Vite
 - Backend: Node.js + Express
-- Base de datos: SQLite
-- Subida de imagenes: almacenamiento local en `server/uploads`
-- Ejecucion local/red LAN: servicios escuchando en `0.0.0.0`
+- Base de datos: SQLite local
+- Imagenes: carpeta local `server/uploads`
+- Host local/LAN: servicios escuchando en `0.0.0.0`
+- Estilos: CSS propio
+- Graficas: componentes React/SVG propios
 
-## Estado Actual
+## Requisitos En Windows
 
-Fase 3 completada: frontend React navegable conectado al backend local.
-
-```text
-planta-ai/
-  client/              Frontend React + Vite
-    src/
-      components/
-      layouts/
-      pages/
-      services/
-      utils/
-  server/              Backend Node.js + Express
-    data/              Base de datos local SQLite
-    uploads/           Imagenes subidas
-    src/
-      config/
-      database/
-      middleware/
-      routes/
-      services/
-  .env.example
-  package.json
-```
-
-## Instalacion Inicial
-
-Requisitos:
-
+- Windows 10/11
 - Node.js 20 o superior recomendado
 - npm incluido con Node.js
+- Permitir Node.js en el Firewall de Windows para redes privadas si se va a
+  abrir desde otro dispositivo en la misma red
 
-Desde la raiz del proyecto:
+Verificar Node y npm:
 
-```bash
+```powershell
+node -v
+npm -v
+```
+
+## Instalacion
+
+Desde PowerShell, entrar a la carpeta del proyecto:
+
+```powershell
+cd C:\Users\andre\OneDrive\Documentos\Projets\2026\planta-ai
+```
+
+Instalar dependencias:
+
+```powershell
 npm install
 ```
 
 Crear archivo de entorno:
 
-```bash
+```powershell
 copy .env.example .env
 ```
 
-## Ejecucion En Desarrollo
+## Ejecucion Rapida Para Demo
 
-Iniciar frontend y backend al mismo tiempo:
+Opcion recomendada: iniciar backend y frontend juntos.
 
-```bash
+```powershell
 npm run dev
 ```
 
-Tambien se pueden iniciar por separado:
+Abrir en el PC anfitrion:
 
-```bash
+```text
+http://localhost:5173
+```
+
+API de verificacion:
+
+```text
+http://localhost:4000/api/health
+```
+
+## Iniciar Por Separado
+
+Terminal 1, backend:
+
+```powershell
 npm run dev:server
+```
+
+Terminal 2, frontend:
+
+```powershell
 npm run dev:client
 ```
 
-En Windows el backend usa arranque estable sin autorecarga. Si quieres modo
-watch durante desarrollo:
-
-```bash
-npm run dev:watch --workspace server
-```
-
-URLs esperadas:
-
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:4000/api/health`
-
-Flujo de uso recomendado para demo:
-
-1. Abrir `http://localhost:5173`.
-2. Entrar desde la landing con el boton de acceso.
-3. Usar un usuario demo: `operador`, `supervisor` o `admin`.
-4. Usar la contrasena `planta2026`.
-5. Ir a `Nuevo analisis`, subir una imagen, analizarla y guardar el caso.
-6. Revisar el caso en `Historial`, `Zonas verdes` y `Reportes`.
-
-## Flujo Principal De Demo
-
-Este es el recorrido recomendado durante la sustentacion:
-
-1. Entrar a la landing institucional de P.L.A.N.T.A.
-2. Hacer clic en `Ingresar a la plataforma`.
-3. Iniciar sesion con:
+URLs:
 
 ```text
-Usuario: operador
-Clave: planta2026
+Frontend: http://localhost:5173
+Backend:  http://localhost:4000/api/health
 ```
 
-4. Abrir `Nuevo analisis`.
-5. Seleccionar una zona verde y escribir una ubicacion especifica.
-6. Subir una fotografia de planta con drag and drop o selector de archivo.
-7. Confirmar la vista previa de la imagen.
-8. Presionar `Analizar imagen`.
-9. Mostrar el flujo visual:
+## Abrir Desde Otro Celular O PC En La Misma Red
+
+1. Conecta el PC anfitrion y el celular/otro PC a la misma red Wi-Fi.
+2. En el PC anfitrion ejecuta:
+
+```powershell
+ipconfig
+```
+
+3. Busca la direccion `IPv4` del adaptador Wi-Fi o Ethernet. Ejemplo:
 
 ```text
-Captura -> Preproceso -> Clasificacion -> Resultado
+192.168.1.50
 ```
 
-10. Explicar el resultado: estado, confianza, riesgo, prioridad, recomendacion de riego y observaciones.
-11. Presionar `Guardar caso`.
-12. Usar los botones posteriores para consultar:
-    - `Historial`
-    - `Zonas verdes`
-    - `Reportes`
-
-El caso guardado queda persistido en SQLite y se refleja en los modulos operativos.
-
-Para abrir la plataforma desde otro dispositivo en la misma red local, usa la IP
-del PC anfitrion:
+4. En el navegador del otro dispositivo abre:
 
 ```text
 http://IP_DEL_PC:5173
@@ -138,25 +121,79 @@ Ejemplo:
 http://192.168.1.50:5173
 ```
 
-## Siguientes Fases
+El frontend detecta el host usado y llama automaticamente al backend en:
 
-1. Pulir detalles visuales finales para sustentacion.
-2. Verificar ejecucion completa en red local desde otro dispositivo.
+```text
+http://IP_DEL_PC:4000/api
+```
 
-## Backend Local
+Si Windows pregunta por permisos de red para Node.js, permitir acceso en redes
+privadas.
 
-El backend inicializa automaticamente:
+## Puertos Configurables
 
-- Base de datos SQLite en `server/data/planta.sqlite`
-- Carpeta de imagenes en `server/uploads`
-- Usuarios demo
-- Zonas verdes demo
-- Catalogo de estados y recomendaciones
-- Casos historicos de ejemplo
+Los valores se configuran en `.env`.
 
-### Usuarios Demo
+```env
+PORT=4000
+HOST=0.0.0.0
+CLIENT_ORIGIN=http://localhost:5173
 
-Todos usan la contrasena:
+FRONTEND_HOST=0.0.0.0
+FRONTEND_PORT=5173
+FRONTEND_PREVIEW_PORT=4173
+
+VITE_API_URL=auto
+```
+
+Si cambias el puerto del backend, por ejemplo:
+
+```env
+PORT=4100
+```
+
+entonces fija tambien:
+
+```env
+VITE_API_URL=http://localhost:4100/api
+```
+
+Para red local:
+
+```env
+VITE_API_URL=http://IP_DEL_PC:4100/api
+```
+
+Si cambias el puerto del frontend:
+
+```env
+FRONTEND_PORT=5174
+CLIENT_ORIGIN=http://localhost:5174
+```
+
+## Build Local
+
+Construir frontend:
+
+```powershell
+npm run build
+```
+
+Servir frontend compilado con Vite Preview:
+
+```powershell
+npm run start:frontend
+```
+
+Iniciar backend en modo estable:
+
+```powershell
+npm run start:backend
+```
+
+## Usuarios Demo
+
+Todos usan la misma clave:
 
 ```text
 planta2026
@@ -168,141 +205,83 @@ Usuarios:
 - `supervisor`
 - `admin`
 
-### Endpoints Principales
+## Flujo Principal De Sustentacion
 
-Salud de la API:
+1. Abrir `http://localhost:5173` o `http://IP_DEL_PC:5173`.
+2. Entrar desde la landing con `Ingresar a la plataforma`.
+3. Iniciar sesion con `operador` y clave `planta2026`.
+4. Ir a `Nuevo analisis`.
+5. Seleccionar zona verde y escribir ubicacion especifica.
+6. Subir una fotografia de planta.
+7. Confirmar la vista previa.
+8. Presionar `Analizar imagen`.
+9. Mostrar el flujo visual:
 
-```http
-GET /api/health
+```text
+Captura -> Preproceso -> Clasificacion -> Resultado
 ```
 
-Login demo:
+10. Explicar estado, confianza, riesgo, prioridad, recomendacion de riego y
+    observaciones.
+11. Presionar `Guardar caso`.
+12. Consultar el caso en `Historial`, `Zonas verdes` y `Reportes`.
+
+## Datos Demo Locales
+
+Al iniciar el backend se crea automaticamente:
+
+- Base SQLite en `server/data/planta.sqlite`
+- Usuarios demo
+- Zonas verdes institucionales
+- Recomendaciones por estado diagnostico
+- Casos historicos de ejemplo
+- Carpeta `server/uploads` para imagenes subidas
+
+La base de datos y las imagenes subidas quedan en el PC local.
+
+## Endpoints Principales
 
 ```http
+GET  /api/health
 POST /api/auth/login
-Content-Type: application/json
-
-{
-  "username": "operador",
-  "password": "planta2026"
-}
-```
-
-Usuarios demo visibles:
-
-```http
-GET /api/auth/demo-users
-```
-
-Dashboard:
-
-```http
-GET /api/dashboard
-```
-
-Analisis de imagen:
-
-```http
+GET  /api/auth/demo-users
+GET  /api/dashboard
 POST /api/analysis/analyze
-Content-Type: multipart/form-data
-
-image: archivo JPG/PNG/WEBP/HEIC
-zoneId: 1
-location: Jardinera norte
-```
-
-Guardar caso:
-
-```http
+GET  /api/cases
 POST /api/cases
-Content-Type: application/json
+GET  /api/zones
+GET  /api/reports
+GET  /api/admin/users
+GET  /api/admin/recommendations
+GET  /api/admin/model
 ```
 
-Historial con filtros:
+## Modo Demo De Analisis
 
-```http
-GET /api/cases
-GET /api/cases?estado=estres%20hidrico
-GET /api/cases?zoneId=2&prioridad=alta
-GET /api/cases?zona=Jardin%20central
-GET /api/cases?desde=2026-05-01&hasta=2026-05-04
+El servicio `server/src/services/analysisService.js` concentra el motor de
+analisis. En esta fase usa `ANALYSIS_MODE=demo`, devuelve resultados realistas y
+estables, y queda preparado para reemplazarse por un modelo real de IA sin
+reescribir las pantallas ni las rutas principales.
+
+## Notas De Solucion De Problemas
+
+Si el celular no abre la app:
+
+- Verifica que ambos dispositivos esten en la misma red.
+- Usa la IPv4 correcta del PC anfitrion.
+- Permite Node.js en el Firewall de Windows.
+- Confirma que `npm run dev` sigue ejecutandose.
+
+Si el frontend abre pero no carga datos:
+
+- Revisa `http://IP_DEL_PC:4000/api/health`.
+- Si cambiaste el puerto backend, actualiza `VITE_API_URL` en `.env`.
+- Reinicia `npm run dev` despues de editar `.env`.
+
+Si quieres limpiar la demo:
+
+```powershell
+del server\data\planta.sqlite
 ```
 
-Zonas verdes:
-
-```http
-GET /api/zones
-GET /api/zones/1
-```
-
-Reportes:
-
-```http
-GET /api/reports
-```
-
-Administracion demo:
-
-```http
-GET /api/admin/users
-POST /api/admin/users
-PATCH /api/admin/users/:id
-GET /api/admin/recommendations
-PUT /api/admin/recommendations/:id
-GET /api/admin/diagnostic-states
-GET /api/admin/model
-```
-
-### Modo Demo De Analisis
-
-El archivo `server/src/services/analysisService.js` concentra el motor de
-analisis. En esta fase funciona en `ANALYSIS_MODE=demo`, genera resultados
-deterministicos a partir de la imagen y devuelve:
-
-- estado de la planta
-- confianza
-- nivel de riesgo
-- prioridad
-- recomendacion de riego
-- observaciones automaticas
-- etapas visuales del flujo de analisis
-
-Esta capa esta preparada para reemplazarse despues por un modelo real sin
-reescribir las rutas de la API.
-
-## Frontend React
-
-El frontend incluye:
-
-- Landing institucional de P.L.A.N.T.A.
-- Login demo con roles operador, supervisor y administrador.
-- Layout interno con barra lateral y barra superior.
-- Dashboard con KPIs, actividad reciente y graficas.
-- Nuevo analisis con drag and drop, vista previa, etapas visuales y resultado.
-- Guardado de casos contra SQLite.
-- Historial con filtros por fecha, estado, zona y prioridad.
-- Gestion de zonas verdes.
-- Reportes imprimibles desde el navegador.
-- Panel administrador con usuarios demo, catalogo de recomendaciones e informacion del modelo.
-
-El tema visual usa CSS propio. No se usa framework UI pesado ni componentes
-externos de diseño.
-
-## Diseño Y Robustez
-
-Adaptacion aplicada para mantener el MVP liviano y confiable:
-
-- CSS propio en `client/src/styles.css` con tokens institucionales y utilidades
-  necesarias para el MVP.
-- Sin framework UI pesado tipo Bootstrap, Material UI o shadcn runtime.
-- Sin dependencia de Tailwind en tiempo de instalacion/build.
-- Graficas simples hechas con componentes React/SVG propios en
-  `client/src/components/SimpleCharts.tsx`.
-- Sin dependencia de `recharts`.
-- Estados vacios reutilizables en `client/src/components/EmptyState.tsx`.
-- Mensajes de error visibles cuando falla una llamada a la API.
-- Datos demo sembrados automaticamente en SQLite para no depender de servicios
-  externos durante la exposicion.
-
-La paleta se mantiene institucional: azul profundo, verde botanico, blanco roto,
-grises suaves y acentos dorados.
+Al iniciar nuevamente el backend, SQLite se recrea con datos demo.
