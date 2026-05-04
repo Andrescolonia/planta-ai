@@ -1,4 +1,16 @@
-import { ChevronDown, Filter, Inbox, Search } from 'lucide-react';
+import {
+  AlertCircle,
+  CalendarDays,
+  ChevronDown,
+  Droplets,
+  Filter,
+  ImageOff,
+  Inbox,
+  MapPin,
+  Search,
+  UserRound,
+  X
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { api } from '../services/api';
@@ -6,8 +18,10 @@ import type { CaseItem, ZoneItem } from '../types';
 import {
   diagnosticLabel,
   formatDate,
+  formatDateTime,
   priorityDotClass,
   priorityLabel,
+  riskLabel,
   statusBadgeClass
 } from '../utils/format';
 
@@ -36,7 +50,11 @@ export function HistoryView() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<CaseItem | null>(null);
+  const [detailImageFailed, setDetailImageFailed] = useState(false);
   const [error, setError] = useState('');
+  const [detailError, setDetailError] = useState('');
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -81,6 +99,30 @@ export function HistoryView() {
     setZoneId('');
     setFrom('');
     setTo('');
+  }
+
+  async function openCaseDetail(item: CaseItem) {
+    setSelectedCase(item);
+    setDetailImageFailed(false);
+    setDetailError('');
+    setDetailLoading(true);
+
+    try {
+      const response = await api.caseDetail(item.id);
+      setSelectedCase(response.case);
+    } catch (requestError) {
+      setDetailError(
+        requestError instanceof Error ? requestError.message : 'No fue posible cargar el detalle del caso.'
+      );
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function closeCaseDetail() {
+    setSelectedCase(null);
+    setDetailError('');
+    setDetailImageFailed(false);
   }
 
   return (
@@ -162,7 +204,20 @@ export function HistoryView() {
             <tbody className="divide-y divide-border bg-card">
               {visibleCases.length > 0 ? (
                 visibleCases.map((item) => (
-                  <tr key={item.id} className="transition hover:bg-accent/10">
+                  <tr
+                    key={item.id}
+                    tabIndex={0}
+                    onClick={() => openCaseDetail(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openCaseDetail(item);
+                      }
+                    }}
+                    className={`cursor-pointer outline-none transition hover:bg-accent/10 focus:bg-accent/10 ${
+                      selectedCase?.id === item.id ? 'bg-secondary/10' : ''
+                    }`}
+                  >
                     <td className="px-4 py-4 text-sm font-medium">#{item.id}</td>
                     <td className="px-4 py-4 text-sm text-muted-foreground">{formatDate(item.createdAt)}</td>
                     <td className="px-4 py-4">
@@ -211,6 +266,17 @@ export function HistoryView() {
           <span>Fuente: base SQLite local</span>
         </div>
       </section>
+
+      {selectedCase && (
+        <CaseDetailPanel
+          item={selectedCase}
+          loading={detailLoading}
+          error={detailError}
+          imageFailed={detailImageFailed}
+          onImageError={() => setDetailImageFailed(true)}
+          onClose={closeCaseDetail}
+        />
+      )}
     </div>
   );
 }
@@ -238,6 +304,155 @@ function SelectWithIcon({
         ))}
       </select>
       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  );
+}
+
+function CaseDetailPanel({
+  item,
+  loading,
+  error,
+  imageFailed,
+  onImageError,
+  onClose
+}: {
+  item: CaseItem;
+  loading: boolean;
+  error: string;
+  imageFailed: boolean;
+  onImageError: () => void;
+  onClose: () => void;
+}) {
+  const imageUrl = api.imageUrl(item.imageUrl || item.imagePath);
+
+  return (
+    <div className="no-print case-detail-overlay">
+      <section className="case-detail-panel w-full max-w-3xl rounded-lg border border-border bg-card shadow-lg">
+        <header className="flex items-start justify-between gap-4 border-b border-border p-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Detalle del caso #{item.id}
+            </p>
+            <h3 className="mt-1 text-xl font-semibold">{diagnosticLabel(item.diagnosticState)}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{item.zoneName} · {item.location}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border p-2 transition hover:bg-accent/20"
+            title="Cerrar detalle"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+
+        <div className="grid gap-5 p-5 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-lg border border-border">
+              {imageUrl && !imageFailed ? (
+                <img
+                  src={imageUrl}
+                  alt={`Imagen del caso ${item.id}`}
+                  onError={onImageError}
+                  className="h-72 w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-72 flex-col items-center justify-center bg-muted/35 p-6 text-center">
+                  <ImageOff className="mb-3 h-10 w-10 text-muted-foreground" />
+                  <p className="text-sm font-medium">Imagen no disponible</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Este caso puede venir de datos sembrados o de una imagen no accesible.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg bg-muted/35 p-3">
+              <p className="text-xs text-muted-foreground">Almacenamiento de imagen</p>
+              <p className="mt-1 text-sm font-semibold">{imageStorageLabel(item)}</p>
+            </div>
+
+            {loading && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                Cargando detalle completo...
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <DetailMetric label="Confianza" value={`${item.confidence.toFixed(1)}%`} />
+              <DetailMetric label="Riesgo" value={riskLabel(item.riskLevel)} />
+              <DetailMetric label="Prioridad" value={priorityLabel(item.priority)} />
+              <DetailMetric label="Modo" value={item.analysisMode || 'demo'} />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <IconDetail icon={CalendarDays} label="Fecha" value={formatDateTime(item.createdAt)} />
+              <IconDetail icon={UserRound} label="Registrado por" value={item.createdByName || 'Sin usuario'} />
+              <IconDetail icon={MapPin} label="Zona" value={item.zoneName} />
+              <IconDetail icon={AlertCircle} label="Estado" value={diagnosticLabel(item.diagnosticState)} />
+            </div>
+
+            <div className="rounded-lg bg-muted/55 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <Droplets className="h-4 w-4 text-secondary" />
+                <h4 className="text-sm font-semibold">Recomendación de riego</h4>
+              </div>
+              <p className="text-sm leading-6 text-muted-foreground">{item.irrigationRecommendation}</p>
+            </div>
+
+            <div className="rounded-lg border border-border p-4">
+              <h4 className="mb-2 text-sm font-semibold">Observaciones automáticas</h4>
+              <p className="text-sm leading-6 text-muted-foreground">{item.observations}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function imageStorageLabel(item: CaseItem) {
+  if (item.imageProvider === 'r2' || item.imagePath?.startsWith('r2://')) {
+    return 'Cloudflare R2';
+  }
+
+  return item.imagePath ? 'Servidor local' : 'No disponible';
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/35 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function IconDetail({
+  icon: Icon,
+  label,
+  value
+}: {
+  icon: typeof CalendarDays;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex gap-3 rounded-lg border border-border p-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="mt-1 text-sm font-semibold">{value}</p>
+      </div>
     </div>
   );
 }

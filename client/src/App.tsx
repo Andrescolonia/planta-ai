@@ -11,10 +11,26 @@ import { AppShell, type ViewKey } from './layouts/AppShell';
 import type { DemoUser, Session } from './types';
 
 const SESSION_KEY = 'planta-local-session';
+const VIEW_KEY = 'planta-current-view';
+const validViews: ViewKey[] = ['dashboard', 'analisis', 'historial', 'zonas', 'reportes', 'admin'];
 
 interface StoredSession {
   user: DemoUser;
   session: Session;
+}
+
+function canAccessView(view: ViewKey, nextUser: DemoUser | null) {
+  return view !== 'admin' || nextUser?.role === 'administrador';
+}
+
+function readStoredView(nextUser: DemoUser | null): ViewKey {
+  const storedView = localStorage.getItem(VIEW_KEY) as ViewKey | null;
+
+  if (storedView && validViews.includes(storedView) && canAccessView(storedView, nextUser)) {
+    return storedView;
+  }
+
+  return 'dashboard';
 }
 
 function readStoredSession(): StoredSession | null {
@@ -43,26 +59,49 @@ export function App() {
     if (stored) {
       setUser(stored.user);
       setSession(stored.session);
+      setCurrentView(readStoredView(stored.user));
     }
   }, []);
 
   useEffect(() => {
     if (user?.role !== 'administrador' && currentView === 'admin') {
       setCurrentView('dashboard');
+      localStorage.setItem(VIEW_KEY, 'dashboard');
     }
   }, [currentView, user]);
+
+  function handleNavigate(view: ViewKey) {
+    if (!canAccessView(view, user)) {
+      return;
+    }
+
+    setCurrentView(view);
+    localStorage.setItem(VIEW_KEY, view);
+  }
 
   function handleLogin(nextUser: DemoUser, nextSession: Session) {
     setUser(nextUser);
     setSession(nextSession);
     localStorage.setItem(SESSION_KEY, JSON.stringify({ user: nextUser, session: nextSession }));
-    setCurrentView('dashboard');
+    const nextView = readStoredView(nextUser);
+    setCurrentView(nextView);
+    localStorage.setItem(VIEW_KEY, nextView);
+  }
+
+  function handleUserUpdate(nextUser: DemoUser) {
+    setUser(nextUser);
+
+    if (session) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ user: nextUser, session }));
+    }
   }
 
   function handleLogout() {
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(VIEW_KEY);
     setUser(null);
     setSession(null);
+    setCurrentView('dashboard');
     setEntry('landing');
   }
 
@@ -78,11 +117,13 @@ export function App() {
     <AppShell
       user={user}
       currentView={currentView}
-      onNavigate={setCurrentView}
+      onNavigate={handleNavigate}
       onLogout={handleLogout}
     >
-      {currentView === 'dashboard' && <DashboardView onNavigate={setCurrentView} />}
-      {currentView === 'analisis' && <AnalysisView user={user} onNavigate={setCurrentView} />}
+      {currentView === 'dashboard' && <DashboardView onNavigate={handleNavigate} />}
+      {currentView === 'analisis' && (
+        <AnalysisView user={user} onNavigate={handleNavigate} onUserUpdate={handleUserUpdate} />
+      )}
       {currentView === 'historial' && <HistoryView />}
       {currentView === 'zonas' && <ZonesView />}
       {currentView === 'reportes' && <ReportsView />}

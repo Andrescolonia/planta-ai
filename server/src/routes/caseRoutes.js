@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { all, get, run } from '../database/connection.js';
 import { env } from '../config/env.js';
+import { isGeneratedGuestName, validatePersonName } from '../services/authService.js';
+import { attachImageUrl } from '../services/storageService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { formatCase } from '../utils/formatters.js';
 import { badRequest, notFound } from '../utils/httpError.js';
@@ -97,7 +99,7 @@ caseRouter.get(
 caseRouter.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    const item = await getCaseById(Number(req.params.id));
+    const item = await attachImageUrl(await getCaseById(Number(req.params.id)));
 
     if (!item) {
       throw notFound('Caso no encontrado.');
@@ -130,9 +132,21 @@ caseRouter.post(
     }
 
     if (createdBy) {
-      const user = await get('SELECT id FROM users WHERE id = ? AND active = 1', [Number(createdBy)]);
+      const user = await get('SELECT id, name, is_guest FROM users WHERE id = ? AND active = 1', [
+        Number(createdBy)
+      ]);
       if (!user) {
         throw badRequest('El usuario asociado al caso no existe o no esta activo.');
+      }
+
+      if (user.is_guest && isGeneratedGuestName(user.name)) {
+        const visitorNameValidation = validatePersonName(payload.visitorName || payload.nombreVisitante);
+
+        if (!visitorNameValidation.valid) {
+          throw badRequest(visitorNameValidation.message);
+        }
+
+        await run('UPDATE users SET name = ? WHERE id = ?', [visitorNameValidation.name, user.id]);
       }
     }
 
@@ -192,7 +206,7 @@ caseRouter.post(
       ]
     );
 
-    const createdCase = await getCaseById(insert.id);
+    const createdCase = await attachImageUrl(await getCaseById(insert.id));
 
     res.status(201).json({
       message: 'Caso guardado correctamente.',

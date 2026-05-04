@@ -5,6 +5,7 @@ import {
   createSession,
   ensurePasswordIsValid,
   hashPassword,
+  validatePersonName,
   normalizeEmail,
   normalizeRole,
   normalizeUsername,
@@ -117,10 +118,15 @@ authRouter.post(
 authRouter.post(
   '/guest',
   asyncHandler(async (req, res) => {
-    const guestName = String(req.body.name || '').trim();
+    const guestNameValidation = validatePersonName(req.body.name, { required: false });
     const username = createGuestUsername();
+
+    if (!guestNameValidation.valid) {
+      throw badRequest(guestNameValidation.message);
+    }
+
     const name =
-      guestName ||
+      guestNameValidation.name ||
       `Invitado ${Math.floor(1000 + Math.random() * 9000).toString()}`;
 
     const insert = await run(

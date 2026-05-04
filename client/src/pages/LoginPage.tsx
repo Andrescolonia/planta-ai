@@ -20,6 +20,28 @@ interface LoginPageProps {
 type AccessMode = 'login' | 'register';
 type LoadingAction = 'login' | 'register' | 'guest' | null;
 
+function normalizePersonName(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function validateOptionalPersonName(value: string) {
+  const name = normalizePersonName(value);
+
+  if (!name) {
+    return '';
+  }
+
+  if (name.length < 2 || name.length > 50) {
+    return 'El nombre debe tener entre 2 y 50 caracteres.';
+  }
+
+  if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(name)) {
+    return 'El nombre solo puede contener letras y espacios.';
+  }
+
+  return '';
+}
+
 export function LoginPage({ onBack, onLogin }: LoginPageProps) {
   const [mode, setMode] = useState<AccessMode>('login');
   const [identifier, setIdentifier] = useState('');
@@ -76,10 +98,17 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
 
   async function handleGuestAccess() {
     setError('');
+
+    const guestNameError = validateOptionalPersonName(guestName);
+    if (guestNameError) {
+      setError(guestNameError);
+      return;
+    }
+
     setLoadingAction('guest');
 
     try {
-      const response = await api.guestLogin(guestName);
+      const response = await api.guestLogin(normalizePersonName(guestName));
       onLogin(response.user, response.session);
     } catch (guestError) {
       setError(guestError instanceof Error ? guestError.message : 'No fue posible ingresar como invitado.');
@@ -145,6 +174,7 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
                 onChange={(event) => setGuestName(event.target.value)}
                 placeholder="Nombre opcional"
                 disabled={loading}
+                maxLength={50}
                 className="flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
               <button
@@ -157,6 +187,9 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
+            <p className="mt-2 text-xs text-green-700">
+              Si lo dejas vacío, se pedirá el nombre antes de analizar una imagen.
+            </p>
           </section>
 
           <div className="mb-5 flex gap-2 rounded-lg bg-muted/35 p-2">

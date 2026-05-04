@@ -15,6 +15,8 @@ export function formatCase(row) {
     location: row.location,
     ubicacion: row.location,
     imagePath: row.image_path,
+    imageUrl: row.image_url || null,
+    imageProvider: row.image_provider || null,
     imageFilename: row.image_filename,
     diagnosticState: row.diagnostic_state,
     resultado: row.diagnostic_state,

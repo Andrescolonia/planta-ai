@@ -23,6 +23,38 @@ export function normalizeEmail(value) {
   return email || null;
 }
 
+export function normalizePersonName(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+export function validatePersonName(value, { required = true, maxLength = 50 } = {}) {
+  const name = normalizePersonName(value);
+
+  if (!name) {
+    return required ? { valid: false, message: 'Ingresa un nombre.' } : { valid: true, name: '' };
+  }
+
+  if (name.length < 2 || name.length > maxLength) {
+    return {
+      valid: false,
+      message: `El nombre debe tener entre 2 y ${maxLength} caracteres.`
+    };
+  }
+
+  if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(name)) {
+    return {
+      valid: false,
+      message: 'El nombre solo puede contener letras y espacios.'
+    };
+  }
+
+  return { valid: true, name };
+}
+
+export function isGeneratedGuestName(value) {
+  return /^Invitado \d{4}$/.test(String(value || '').trim());
+}
+
 export function normalizeRole(role, fallback = 'usuario') {
   return ROLE_MAP[role] || fallback;
 }

@@ -19,6 +19,9 @@ function resolveFromServerRoot(value, fallback) {
 
 const uploadDir = resolveFromServerRoot(process.env.UPLOAD_DIR, './uploads');
 const databasePath = resolveFromServerRoot(process.env.DATABASE_PATH, './data/planta.sqlite');
+const r2AccountId = process.env.R2_ACCOUNT_ID || '';
+const r2Endpoint =
+  process.env.R2_ENDPOINT || (r2AccountId ? `https://${r2AccountId}.r2.cloudflarestorage.com` : '');
 
 fs.mkdirSync(uploadDir, { recursive: true });
 fs.mkdirSync(path.dirname(databasePath), { recursive: true });
@@ -31,6 +34,7 @@ export const env = {
   databasePath,
   uploadDir,
   uploadUrlPrefix: '/uploads',
+  storageDriver: process.env.STORAGE_DRIVER || 'local',
   analysisMode: process.env.ANALYSIS_MODE || 'demo',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   openaiBaseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
@@ -38,6 +42,15 @@ export const env = {
   openaiTimeoutMs: Number(process.env.OPENAI_TIMEOUT_MS || 30000),
   openaiFallbackToDemo: process.env.OPENAI_FALLBACK_TO_DEMO === 'true',
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB || 8),
+  r2AccountId,
+  r2Endpoint,
+  r2AccessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+  r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+  r2Bucket: process.env.R2_BUCKET || '',
+  r2PublicUrl: process.env.R2_PUBLIC_URL || '',
+  r2Prefix: process.env.R2_PREFIX || 'planta/casos',
+  r2SignedUrlTtlSeconds: Number(process.env.R2_SIGNED_URL_TTL_SECONDS || 900),
+  r2FallbackToLocal: process.env.R2_FALLBACK_TO_LOCAL !== 'false',
   projectRoot,
   serverRoot
 };

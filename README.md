@@ -13,7 +13,7 @@ externa.
 - Frontend: React + Vite
 - Backend: Node.js + Express
 - Base de datos: SQLite local
-- Imagenes: carpeta local `server/uploads`
+- Imagenes: carpeta local `server/uploads` o Cloudflare R2 opcional
 - Host local/LAN: servicios escuchando en `0.0.0.0`
 - Estilos: CSS propio
 - Graficas: componentes React/SVG propios
@@ -47,11 +47,12 @@ Instalar dependencias:
 npm install
 ```
 
-Crear archivo de entorno:
+Configurar variables de entorno en el archivo local `.env` de la raiz del
+proyecto. Este archivo contiene claves y secretos, por eso no se versiona en
+Git.
 
-```powershell
-copy .env.example .env
-```
+Antes de ejecutar la demo, verifica que `.env` exista y tenga los puertos,
+credenciales opcionales de OpenAI y credenciales opcionales de Cloudflare R2.
 
 ## Ejecucion Rapida Para Demo
 
@@ -144,6 +145,10 @@ FRONTEND_PORT=5173
 FRONTEND_PREVIEW_PORT=4173
 
 VITE_API_URL=auto
+
+STORAGE_DRIVER=local
+UPLOAD_DIR=./uploads
+MAX_UPLOAD_MB=8
 ```
 
 Si cambias el puerto del backend, por ejemplo:
@@ -170,6 +175,39 @@ Si cambias el puerto del frontend:
 FRONTEND_PORT=5174
 CLIENT_ORIGIN=http://localhost:5174
 ```
+
+## Almacenamiento De Imagenes
+
+Por defecto el MVP guarda imagenes en `server/uploads` para que funcione sin
+nube:
+
+```env
+STORAGE_DRIVER=local
+```
+
+Para usar Cloudflare R2, crea el bucket y un token S3 con permiso Object Read &
+Write. Luego configura `.env`:
+
+```env
+STORAGE_DRIVER=r2
+R2_ACCOUNT_ID=tu_account_id
+R2_ENDPOINT=https://tu_account_id.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=tu_access_key_id
+R2_SECRET_ACCESS_KEY=tu_secret_access_key
+R2_BUCKET=planta-imagenes
+R2_PREFIX=planta/casos
+R2_SIGNED_URL_TTL_SECONDS=900
+R2_FALLBACK_TO_LOCAL=true
+```
+
+Si el bucket tiene dominio publico o custom domain, puedes definir:
+
+```env
+R2_PUBLIC_URL=https://imagenes.tu-dominio.edu
+```
+
+Si `R2_PUBLIC_URL` queda vacio, el backend genera una URL firmada temporal al
+abrir el detalle de un caso. Los secretos de R2 solo viven en el backend.
 
 ## Build Local
 
@@ -249,9 +287,11 @@ Al iniciar el backend se crea automaticamente:
 - Zonas verdes institucionales
 - Recomendaciones por estado diagnostico
 - Casos historicos de ejemplo
-- Carpeta `server/uploads` para imagenes subidas
+- Carpeta `server/uploads` para imagenes subidas, o referencias `r2://...` si
+  activas Cloudflare R2
 
-La base de datos y las imagenes subidas quedan en el PC local.
+La base de datos queda en el PC local. Las imagenes quedan en el PC local o en
+R2 segun `STORAGE_DRIVER`.
 
 ## Endpoints Principales
 
@@ -264,6 +304,7 @@ GET  /api/auth/me
 GET  /api/dashboard
 POST /api/analysis/analyze
 GET  /api/cases
+GET  /api/cases/:id
 POST /api/cases
 GET  /api/zones
 GET  /api/reports
@@ -280,7 +321,7 @@ El servicio `server/src/services/analysisService.js` concentra dos motores:
   internet ni clave externa.
 - `ANALYSIS_MODE=openai`: motor real con OpenAI Vision usando la Responses API.
 
-Para activar OpenAI, crea `.env` desde `.env.example` o `.env.sample` y define:
+Para activar OpenAI, define en `.env`:
 
 ```env
 ANALYSIS_MODE=openai

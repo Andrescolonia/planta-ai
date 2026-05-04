@@ -80,8 +80,12 @@ export const api = {
       return null;
     }
 
-    if (path.startsWith('http')) {
+    if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) {
       return path;
+    }
+
+    if (path.startsWith('r2://')) {
+      return null;
     }
 
     return `${API_ROOT}${path}`;
@@ -130,6 +134,10 @@ export const api = {
 
   cases(query = '') {
     return request<{ cases: CaseItem[] }>(`/cases${query}`);
+  },
+
+  caseDetail(id: number) {
+    return request<{ case: CaseItem }>(`/cases/${id}`);
   },
 
   analyze(formData: FormData) {

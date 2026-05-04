@@ -43,6 +43,8 @@ export interface CaseItem {
   location: string;
   ubicacion?: string;
   imagePath?: string | null;
+  imageUrl?: string | null;
+  imageProvider?: string | null;
   diagnosticState: string;
   resultado?: string;
   confidence: number;
@@ -50,6 +52,7 @@ export interface CaseItem {
   irrigationRecommendation: string;
   observations: string;
   priority: string;
+  analysisMode?: string;
   createdByName?: string | null;
 }
 
@@ -109,7 +112,9 @@ export interface AnalyzeResponse {
   message: string;
   uploadedImage: {
     path: string;
-    url: string;
+    url?: string | null;
+    provider?: string;
+    key?: string | null;
     filename: string;
     originalName: string;
     mimeType: string;

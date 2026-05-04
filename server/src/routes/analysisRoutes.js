@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import { all, get } from '../database/connection.js';
-import { imageUpload, buildPublicImagePath } from '../middleware/upload.js';
+import { imageUpload } from '../middleware/upload.js';
 import { analysisService } from '../services/analysisService.js';
+import { storeUploadedImage } from '../services/storageService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { badRequest } from '../utils/httpError.js';
 
@@ -63,7 +64,14 @@ analysisRouter.post(
       throw error;
     }
 
-    const imagePath = buildPublicImagePath(req.file.filename);
+    let storedImage;
+
+    try {
+      storedImage = await storeUploadedImage(req.file);
+    } catch (error) {
+      await removeUploadedFile(req.file);
+      throw error;
+    }
 
     res.json({
       message:
@@ -71,8 +79,10 @@ analysisRouter.post(
           ? 'Analisis con OpenAI completado.'
           : 'Analisis demo completado.',
       uploadedImage: {
-        path: imagePath,
-        url: imagePath,
+        path: storedImage.path,
+        url: storedImage.url,
+        provider: storedImage.provider,
+        key: storedImage.key,
         filename: req.file.filename,
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
@@ -82,7 +92,7 @@ analysisRouter.post(
       suggestedCase: {
         zoneId,
         location: location || 'Ubicacion pendiente por confirmar',
-        imagePath,
+        imagePath: storedImage.path,
         imageFilename: req.file.filename,
         diagnosticState: result.diagnosticState,
         confidence: result.confidence,

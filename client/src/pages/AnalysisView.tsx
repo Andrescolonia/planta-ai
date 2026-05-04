@@ -5,9 +5,11 @@ import {
   History,
   ImageOff,
   Loader2,
+  MapPin,
   RotateCcw,
   Save,
-  Upload
+  Upload,
+  UserRound
 } from 'lucide-react';
 import { DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { ViewKey } from '../layouts/AppShell';
@@ -18,6 +20,7 @@ import { diagnosticLabel, priorityLabel, riskLabel } from '../utils/format';
 interface AnalysisViewProps {
   user: DemoUser;
   onNavigate: (view: ViewKey) => void;
+  onUserUpdate?: (user: DemoUser) => void;
 }
 
 const maxImageSizeMb = 8;
@@ -39,6 +42,79 @@ const defaultStages = [
   { key: 'clasificacion', label: 'Clasificación' },
   { key: 'resultado', label: 'Resultado' }
 ];
+
+const locationOptionsByZone: Record<string, string[]> = {
+  'Bloque A': [
+    'Jardineras laterales del Bloque A',
+    'Sendero peatonal norte',
+    'Jardinera de aula 104',
+    'Acceso principal del Bloque A'
+  ],
+  'Jardin central': [
+    'Macizo ornamental costado occidental',
+    'Palmas ornamentales centrales',
+    'Cama baja oriental',
+    'Sendero central'
+  ],
+  'Entrada principal': [
+    'Franja verde junto a porteria',
+    'Materas institucionales lado sur',
+    'Borde vial de acceso',
+    'Jardines de bienvenida'
+  ],
+  'Zona administrativa': [
+    'Materas externas frente a recepcion',
+    'Jardinera de acceso a oficinas',
+    'Arbustos perimetrales',
+    'Patio administrativo'
+  ],
+  Biblioteca: [
+    'Jardin de sombra lateral',
+    'Zona verde junto a rampa',
+    'Macizos bajos de biblioteca',
+    'Punto de descanso exterior'
+  ]
+};
+
+function getLocationOptions(zone?: ZoneItem) {
+  if (!zone) {
+    return ['Punto de observacion general'];
+  }
+
+  return (
+    locationOptionsByZone[zone.name] || [
+      `Jardineras de ${zone.name}`,
+      `Sendero principal de ${zone.name}`,
+      `Punto de observacion en ${zone.name}`
+    ]
+  );
+}
+
+function normalizePersonName(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function validateRequiredPersonName(value: string) {
+  const name = normalizePersonName(value);
+
+  if (!name) {
+    return 'Ingresa tu nombre para asociar el análisis.';
+  }
+
+  if (name.length < 2 || name.length > 50) {
+    return 'El nombre debe tener entre 2 y 50 caracteres.';
+  }
+
+  if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(name)) {
+    return 'El nombre solo puede contener letras y espacios.';
+  }
+
+  return '';
+}
+
+function guestNeedsName(user: DemoUser) {
+  return Boolean(user.isGuest && /^Invitado \d{4}$/.test(user.name));
+}
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -71,7 +147,7 @@ function validateImageFile(file: File, openAiMode: boolean) {
   return '';
 }
 
-export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
+export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [zones, setZones] = useState<ZoneItem[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -81,6 +157,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
   const [resultImageFailed, setResultImageFailed] = useState(false);
   const [zoneId, setZoneId] = useState('');
   const [location, setLocation] = useState('');
+  const [visitorName, setVisitorName] = useState('');
   const [activeStage, setActiveStage] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -130,6 +207,8 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
     () => zones.find((zone) => String(zone.id) === zoneId),
     [zoneId, zones]
   );
+  const locationOptions = useMemo(() => getLocationOptions(selectedZone), [selectedZone]);
+  const shouldAskVisitorName = guestNeedsName(user);
   const openAiMode = analysisMode === 'openai';
   const acceptedInput = openAiMode
     ? '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp'
@@ -138,6 +217,12 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
     () => api.imageUrl(analysis?.uploadedImage.url || analysis?.uploadedImage.path),
     [analysis]
   );
+
+  useEffect(() => {
+    if (locationOptions.length > 0 && !locationOptions.includes(location)) {
+      setLocation(locationOptions[0]);
+    }
+  }, [location, locationOptions]);
 
   function setFile(file: File) {
     const validationError = validateImageFile(file, openAiMode);
@@ -168,6 +253,30 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
     }
   }
 
+  function clearResultState() {
+    setAnalysis(null);
+    setSavedCaseId(null);
+    setError('');
+  }
+
+  function handleZoneSelect(nextZoneId: string) {
+    if (analyzing || saving) {
+      return;
+    }
+
+    setZoneId(nextZoneId);
+    clearResultState();
+  }
+
+  function handleLocationSelect(nextLocation: string) {
+    if (analyzing || saving) {
+      return;
+    }
+
+    setLocation(nextLocation);
+    clearResultState();
+  }
+
   async function handleAnalyze() {
     if (!selectedFile) {
       setError('Selecciona una imagen antes de analizar.');
@@ -185,6 +294,14 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
       return;
     }
 
+    if (shouldAskVisitorName) {
+      const nameError = validateRequiredPersonName(visitorName);
+      if (nameError) {
+        setError(nameError);
+        return;
+      }
+    }
+
     setAnalyzing(true);
     setError('');
     setAnalysis(null);
@@ -193,7 +310,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
     const formData = new FormData();
     formData.append('image', selectedFile);
     formData.append('zoneId', zoneId);
-    formData.append('location', location.trim() || selectedZone?.name || 'Ubicación sin especificar');
+    formData.append('location', location || selectedZone?.name || 'Ubicación sin especificar');
 
     try {
       const [response] = await Promise.all([api.analyze(formData), wait(2300)]);
@@ -218,11 +335,16 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
       const response = await api.saveCase({
         ...analysis.suggestedCase,
         zoneId: Number(zoneId),
-        location: location.trim() || selectedZone?.name || 'Ubicación sin especificar',
+        location: location || selectedZone?.name || 'Ubicación sin especificar',
         uploadedImage: analysis.uploadedImage,
-        createdBy: user.id
+        createdBy: user.id,
+        visitorName: shouldAskVisitorName ? normalizePersonName(visitorName) : undefined
       });
       setSavedCaseId(response.case.id);
+
+      if (shouldAskVisitorName && response.case.createdByName) {
+        onUserUpdate?.({ ...user, name: response.case.createdByName });
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No fue posible guardar el caso.');
     } finally {
@@ -237,7 +359,6 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
     setAnalysis(null);
     setSavedCaseId(null);
     setError('');
-    setLocation('');
     setActiveStage(0);
 
     if (inputRef.current) {
@@ -427,6 +548,10 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                     <p className="text-xs text-muted-foreground">Zona asociada</p>
                     <p className="mt-1 text-sm font-semibold">{selectedZone?.name || 'Sin zona'}</p>
                   </div>
+                  <div className="mt-3 rounded-lg bg-muted/35 p-3">
+                    <p className="text-xs text-muted-foreground">Punto de revisión</p>
+                    <p className="mt-1 text-sm font-semibold">{location}</p>
+                  </div>
                   {analysis.result.suggestedCommonName && (
                     <div className="mt-3 rounded-lg bg-muted/35 p-3">
                       <p className="text-xs text-muted-foreground">Nombre común sugerido</p>
@@ -522,28 +647,80 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
         <aside className="space-y-4">
           <section className="rounded-lg border border-border bg-card p-5">
             <h3 className="mb-4 font-semibold">Datos del caso</h3>
-            <label className="mb-2 block text-sm font-medium">Zona verde</label>
-            <select
-              value={zoneId}
-              onChange={(event) => setZoneId(event.target.value)}
-              disabled={analyzing || saving}
-              className="mb-4 w-full rounded-lg border border-border bg-input-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
-            >
-              {zones.map((zone) => (
-                <option key={zone.id} value={zone.id}>
-                  {zone.name}
-                </option>
-              ))}
-            </select>
 
-            <label className="mb-2 block text-sm font-medium">Ubicación específica</label>
-            <input
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-              disabled={analyzing || saving}
-              placeholder="Ej. Jardinera costado norte"
-              className="w-full rounded-lg border border-border bg-input-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
-            />
+            {shouldAskVisitorName && (
+              <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <label className="mb-2 block text-sm font-medium text-foreground">
+                  Nombre del visitante
+                </label>
+                <div className="relative">
+                  <UserRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={visitorName}
+                    onChange={(event) => setVisitorName(event.target.value)}
+                    disabled={analyzing || saving}
+                    maxLength={50}
+                    placeholder="Ej. Carlos Rivas"
+                    className="w-full rounded-lg border border-blue-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-blue-700">Solo letras y espacios, máximo 50 caracteres.</p>
+              </div>
+            )}
+
+            <div className="mb-5">
+              <p className="mb-2 text-sm font-medium">Zona verde</p>
+              <div className="space-y-2">
+                {zones.map((zone) => {
+                  const selected = String(zone.id) === zoneId;
+
+                  return (
+                    <button
+                      key={zone.id}
+                      type="button"
+                      onClick={() => handleZoneSelect(String(zone.id))}
+                      disabled={analyzing || saving}
+                      className={`w-full rounded-lg border p-3 text-left transition disabled:opacity-60 ${
+                        selected
+                          ? 'border-secondary bg-secondary/10'
+                          : 'border-border bg-card hover:bg-accent/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-secondary" />
+                        <span className="text-sm font-semibold text-foreground">{zone.name}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{zone.campusArea}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium">Punto de revisión</p>
+              <div className="space-y-2">
+                {locationOptions.map((option) => {
+                  const selected = option === location;
+
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => handleLocationSelect(option)}
+                      disabled={analyzing || saving}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-60 ${
+                        selected
+                          ? 'border-secondary bg-secondary/10 text-foreground'
+                          : 'border-border bg-card text-muted-foreground hover:bg-accent/10'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </section>
 
           <section className="rounded-lg border border-border bg-card p-5">
