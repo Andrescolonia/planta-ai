@@ -1,17 +1,7 @@
-import { AlertTriangle, Droplet, Leaf, PlusCircle, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Droplet, Inbox, Leaf, PlusCircle, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import {
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from 'recharts';
+import { EmptyState } from '../components/EmptyState';
+import { DonutChart, StateLegend, WeeklyLineChart } from '../components/SimpleCharts';
 import type { ViewKey } from '../layouts/AppShell';
 import { api } from '../services/api';
 import type { DashboardData } from '../types';
@@ -137,65 +127,32 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
             <span className="rounded bg-muted px-3 py-1 text-xs text-muted-foreground">Últimos 7 días</span>
           </div>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.charts.weeklyTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7e6" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#66706a" />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} stroke="#66706a" />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="diagnostics"
-                  name="Diagnósticos"
-                  stroke="#2D5A27"
-                  strokeWidth={3}
-                  dot={{ fill: '#2D5A27', r: 4 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="alerts"
-                  name="Alertas"
-                  stroke="#D6AE37"
-                  strokeWidth={3}
-                  dot={{ fill: '#D6AE37', r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {data.charts.weeklyTrend.length > 0 ? (
+              <WeeklyLineChart data={data.charts.weeklyTrend} />
+            ) : (
+              <EmptyState
+                icon={Inbox}
+                title="Sin tendencia disponible"
+                description="Cuando existan casos guardados, la tendencia semanal se calculará automáticamente."
+              />
+            )}
           </div>
         </section>
 
         <section className="rounded-lg border border-border bg-card p-5">
           <h3 className="font-semibold">Diagnósticos por estado</h3>
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data.charts.diagnosticsByState}
-                  dataKey="total"
-                  nameKey="state"
-                  innerRadius={55}
-                  outerRadius={78}
-                  paddingAngle={2}
-                >
-                  {data.charts.diagnosticsByState.map((entry) => (
-                    <Cell key={entry.state} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value, _name, item) => [value, diagnosticLabel(item.payload.state)]} />
-              </PieChart>
-            </ResponsiveContainer>
+            {data.charts.diagnosticsByState.length > 0 ? (
+              <DonutChart data={data.charts.diagnosticsByState} />
+            ) : (
+              <EmptyState
+                icon={Inbox}
+                title="Sin diagnósticos"
+                description="Los estados aparecerán cuando se guarden casos en el sistema."
+              />
+            )}
           </div>
-          <div className="space-y-2">
-            {data.charts.diagnosticsByState.map((item) => (
-              <div key={item.state} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  {diagnosticLabel(item.state)}
-                </span>
-                <span className="font-medium">{item.total}</span>
-              </div>
-            ))}
-          </div>
+          <StateLegend data={data.charts.diagnosticsByState} />
         </section>
       </div>
 
@@ -210,23 +167,33 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
           </button>
         </div>
         <div className="divide-y divide-border">
-          {data.recentActivity.map((item) => (
-            <div key={item.id} className="grid gap-3 p-4 md:grid-cols-[1fr_0.8fr_0.55fr_0.55fr] md:items-center">
-              <div>
-                <p className="font-medium">Caso #{item.id}</p>
-                <p className="text-sm text-muted-foreground">{item.location}</p>
+          {data.recentActivity.length > 0 ? (
+            data.recentActivity.map((item) => (
+              <div key={item.id} className="grid gap-3 p-4 md:grid-cols-[1fr_0.8fr_0.55fr_0.55fr] md:items-center">
+                <div>
+                  <p className="font-medium">Caso #{item.id}</p>
+                  <p className="text-sm text-muted-foreground">{item.location}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">{item.zoneName}</p>
+                <span
+                  className={`w-fit rounded border px-2 py-1 text-xs font-medium ${statusBadgeClass(
+                    item.diagnosticState
+                  )}`}
+                >
+                  {diagnosticLabel(item.diagnosticState)}
+                </span>
+                <p className="text-sm text-muted-foreground md:text-right">{formatDateTime(item.createdAt)}</p>
               </div>
-              <p className="text-sm text-muted-foreground">{item.zoneName}</p>
-              <span
-                className={`w-fit rounded border px-2 py-1 text-xs font-medium ${statusBadgeClass(
-                  item.diagnosticState
-                )}`}
-              >
-                {diagnosticLabel(item.diagnosticState)}
-              </span>
-              <p className="text-sm text-muted-foreground md:text-right">{formatDateTime(item.createdAt)}</p>
+            ))
+          ) : (
+            <div className="p-4">
+              <EmptyState
+                icon={Inbox}
+                title="Sin actividad reciente"
+                description="Cuando guardes un análisis, aparecerá aquí para seguimiento operativo."
+              />
             </div>
-          ))}
+          )}
         </div>
       </section>
     </div>

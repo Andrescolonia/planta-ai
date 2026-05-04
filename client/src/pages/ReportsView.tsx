@@ -1,20 +1,10 @@
-import { Calendar, Download, Printer, TrendingUp } from 'lucide-react';
+import { Calendar, Inbox, Printer, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from 'recharts';
+import { EmptyState } from '../components/EmptyState';
+import { DonutChart, StateLegend, WeeklyBarChart, ZoneAlertsChart } from '../components/SimpleCharts';
 import { api } from '../services/api';
 import type { ReportData } from '../types';
-import { diagnosticLabel, formatDateTime } from '../utils/format';
+import { formatDateTime } from '../utils/format';
 
 const emptyReport: ReportData = {
   generatedAt: new Date().toISOString(),
@@ -99,75 +89,48 @@ export function ReportsView() {
         <section className="print-card rounded-lg border border-border bg-card p-5">
           <h3 className="mb-4 font-semibold">Tendencia semanal</h3>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={report.weeklyTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7e6" />
-                <XAxis dataKey="date" stroke="#66706a" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} stroke="#66706a" tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="diagnostics" name="Diagnósticos" fill="#2D5A27" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="highRisk" name="Alto riesgo" fill="#D6AE37" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {report.weeklyTrend.length > 0 ? (
+              <WeeklyBarChart data={report.weeklyTrend} />
+            ) : (
+              <EmptyState
+                icon={Inbox}
+                title="Sin tendencia semanal"
+                description="El reporte se actualizará cuando existan diagnósticos guardados."
+              />
+            )}
           </div>
         </section>
 
         <section className="print-card rounded-lg border border-border bg-card p-5">
           <h3 className="mb-4 font-semibold">Diagnósticos por estado</h3>
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={report.diagnosticsByState}
-                  dataKey="total"
-                  nameKey="state"
-                  innerRadius={54}
-                  outerRadius={78}
-                  paddingAngle={2}
-                >
-                  {report.diagnosticsByState.map((entry) => (
-                    <Cell key={entry.state} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {report.diagnosticsByState.length > 0 ? (
+              <DonutChart data={report.diagnosticsByState} />
+            ) : (
+              <EmptyState
+                icon={Inbox}
+                title="Sin estados diagnosticados"
+                description="La distribución aparecerá cuando el historial tenga casos guardados."
+              />
+            )}
           </div>
-          <div className="space-y-2">
-            {report.diagnosticsByState.map((item) => (
-              <div key={item.state} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  {diagnosticLabel(item.state)}
-                </span>
-                <span className="font-medium">{item.total}</span>
-              </div>
-            ))}
-          </div>
+          <StateLegend data={report.diagnosticsByState} />
         </section>
       </div>
 
       <section className="print-card mt-6 rounded-lg border border-border bg-card p-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-semibold">Alertas por zona</h3>
-          <Download className="no-print h-5 w-5 text-muted-foreground" />
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {report.alertsByZone.map((zone) => (
-            <div key={zone.zoneId} className="rounded-lg border border-border p-4">
-              <p className="text-sm font-medium">{zone.zoneName}</p>
-              <div className="mt-3 flex items-center gap-2">
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-accent"
-                    style={{ width: `${Math.min(zone.totalAlerts * 28, 100)}%` }}
-                  />
-                </div>
-                <span className="text-sm font-semibold">{zone.totalAlerts}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+        {report.alertsByZone.length > 0 ? (
+          <ZoneAlertsChart data={report.alertsByZone} />
+        ) : (
+          <EmptyState
+            icon={Inbox}
+            title="Sin alertas por zona"
+            description="Las alertas aparecerán cuando el modo demo guarde casos con riesgo alto."
+          />
+        )}
       </section>
     </div>
   );

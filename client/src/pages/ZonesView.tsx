@@ -1,5 +1,6 @@
-import { AlertCircle, CheckCircle2, Clock, MapPin } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Inbox, MapPin } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { EmptyState } from '../components/EmptyState';
 import { api } from '../services/api';
 import type { ZoneItem } from '../types';
 import { formatDateTime } from '../utils/format';
@@ -48,6 +49,16 @@ export function ZonesView() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
+        {zones.length === 0 && (
+          <div className="xl:col-span-2">
+            <EmptyState
+              icon={Inbox}
+              title="Sin zonas registradas"
+              description="El sembrado demo crea zonas automáticamente al iniciar el backend."
+            />
+          </div>
+        )}
+
         {zones.map((zone) => {
           const warning = zone.generalStatus !== 'estable';
           return (

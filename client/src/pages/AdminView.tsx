@@ -1,5 +1,6 @@
-import { Cpu, Plus, Tag, Users } from 'lucide-react';
+import { Cpu, Inbox, Plus, Tag, Users } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
+import { EmptyState } from '../components/EmptyState';
 import { api } from '../services/api';
 import type { DemoUser, ModelInfo, Recommendation } from '../types';
 import { diagnosticLabel, priorityLabel, riskLabel } from '../utils/format';
@@ -92,17 +93,25 @@ export function AdminView({ user }: AdminViewProps) {
           </div>
 
           <div className="space-y-3">
-            {users.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-lg bg-muted/35 p-3">
-                <div>
-                  <p className="text-sm font-medium">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">{item.username}</p>
+            {users.length > 0 ? (
+              users.map((item) => (
+                <div key={item.id} className="flex items-center justify-between rounded-lg bg-muted/35 p-3">
+                  <div>
+                    <p className="text-sm font-medium">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">{item.username}</p>
+                  </div>
+                  <span className="rounded border border-border px-2 py-1 text-xs font-medium capitalize">
+                    {item.role}
+                  </span>
                 </div>
-                <span className="rounded border border-border px-2 py-1 text-xs font-medium capitalize">
-                  {item.role}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <EmptyState
+                icon={Inbox}
+                title="Sin usuarios demo"
+                description="El backend siembra usuarios automáticamente al iniciar la base local."
+              />
+            )}
           </div>
 
           <form onSubmit={handleCreateUser} className="mt-5 rounded-lg border border-border p-4">
@@ -154,21 +163,29 @@ export function AdminView({ user }: AdminViewProps) {
           </div>
 
           <div className="space-y-3">
-            {recommendations.map((item) => (
-              <article key={item.id} className="rounded-lg border border-border p-4">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <h4 className="font-semibold">{diagnosticLabel(item.diagnosticState)}</h4>
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                </div>
-                <p className="text-sm text-muted-foreground">{item.irrigationRecommendation}</p>
-                <div className="mt-3 flex gap-2 text-xs">
-                  <span className="rounded bg-muted px-2 py-1">Riesgo {riskLabel(item.riskLevel)}</span>
-                  <span className="rounded bg-muted px-2 py-1">
-                    Prioridad {priorityLabel(item.priority)}
-                  </span>
-                </div>
-              </article>
-            ))}
+            {recommendations.length > 0 ? (
+              recommendations.map((item) => (
+                <article key={item.id} className="rounded-lg border border-border p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <h4 className="font-semibold">{diagnosticLabel(item.diagnosticState)}</h4>
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{item.irrigationRecommendation}</p>
+                  <div className="mt-3 flex gap-2 text-xs">
+                    <span className="rounded bg-muted px-2 py-1">Riesgo {riskLabel(item.riskLevel)}</span>
+                    <span className="rounded bg-muted px-2 py-1">
+                      Prioridad {priorityLabel(item.priority)}
+                    </span>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <EmptyState
+                icon={Inbox}
+                title="Sin recomendaciones"
+                description="El catálogo demo se crea automáticamente junto con la base SQLite."
+              />
+            )}
           </div>
         </section>
       </div>

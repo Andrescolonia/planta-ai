@@ -92,6 +92,39 @@ Flujo de uso recomendado para demo:
 5. Ir a `Nuevo analisis`, subir una imagen, analizarla y guardar el caso.
 6. Revisar el caso en `Historial`, `Zonas verdes` y `Reportes`.
 
+## Flujo Principal De Demo
+
+Este es el recorrido recomendado durante la sustentacion:
+
+1. Entrar a la landing institucional de P.L.A.N.T.A.
+2. Hacer clic en `Ingresar a la plataforma`.
+3. Iniciar sesion con:
+
+```text
+Usuario: operador
+Clave: planta2026
+```
+
+4. Abrir `Nuevo analisis`.
+5. Seleccionar una zona verde y escribir una ubicacion especifica.
+6. Subir una fotografia de planta con drag and drop o selector de archivo.
+7. Confirmar la vista previa de la imagen.
+8. Presionar `Analizar imagen`.
+9. Mostrar el flujo visual:
+
+```text
+Captura -> Preproceso -> Clasificacion -> Resultado
+```
+
+10. Explicar el resultado: estado, confianza, riesgo, prioridad, recomendacion de riego y observaciones.
+11. Presionar `Guardar caso`.
+12. Usar los botones posteriores para consultar:
+    - `Historial`
+    - `Zonas verdes`
+    - `Reportes`
+
+El caso guardado queda persistido en SQLite y se refleja en los modulos operativos.
+
 Para abrir la plataforma desde otro dispositivo en la misma red local, usa la IP
 del PC anfitrion:
 
@@ -252,5 +285,24 @@ El frontend incluye:
 - Reportes imprimibles desde el navegador.
 - Panel administrador con usuarios demo, catalogo de recomendaciones e informacion del modelo.
 
-El tema visual usa React + Tailwind CSS con paleta institucional basada en azul
-profundo, verde botanico, blanco roto, grises suaves y acentos dorados.
+El tema visual usa CSS propio. No se usa framework UI pesado ni componentes
+externos de diseño.
+
+## Diseño Y Robustez
+
+Adaptacion aplicada para mantener el MVP liviano y confiable:
+
+- CSS propio en `client/src/styles.css` con tokens institucionales y utilidades
+  necesarias para el MVP.
+- Sin framework UI pesado tipo Bootstrap, Material UI o shadcn runtime.
+- Sin dependencia de Tailwind en tiempo de instalacion/build.
+- Graficas simples hechas con componentes React/SVG propios en
+  `client/src/components/SimpleCharts.tsx`.
+- Sin dependencia de `recharts`.
+- Estados vacios reutilizables en `client/src/components/EmptyState.tsx`.
+- Mensajes de error visibles cuando falla una llamada a la API.
+- Datos demo sembrados automaticamente en SQLite para no depender de servicios
+  externos durante la exposicion.
+
+La paleta se mantiene institucional: azul profundo, verde botanico, blanco roto,
+grises suaves y acentos dorados.

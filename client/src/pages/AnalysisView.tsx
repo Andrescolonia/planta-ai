@@ -309,7 +309,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
                 >
                   <Save className="h-4 w-4" />
-                  Guardar caso
+                  {savedCaseId ? 'Caso guardado' : 'Guardar caso'}
                 </button>
                 <button
                   onClick={() => onNavigate('historial')}
@@ -326,6 +326,29 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                   Generar reporte simple
                 </button>
               </div>
+
+              {savedCaseId && (
+                <div className="mt-4 grid gap-3 rounded-lg border border-green-200 bg-green-50 p-4 md:grid-cols-3">
+                  <button
+                    onClick={() => onNavigate('historial')}
+                    className="rounded-lg border border-green-200 bg-white px-3 py-2 text-sm font-medium text-green-800 transition hover:bg-green-100"
+                  >
+                    Consultar en historial
+                  </button>
+                  <button
+                    onClick={() => onNavigate('zonas')}
+                    className="rounded-lg border border-green-200 bg-white px-3 py-2 text-sm font-medium text-green-800 transition hover:bg-green-100"
+                  >
+                    Revisar zona asociada
+                  </button>
+                  <button
+                    onClick={() => onNavigate('reportes')}
+                    className="rounded-lg border border-green-200 bg-white px-3 py-2 text-sm font-medium text-green-800 transition hover:bg-green-100"
+                  >
+                    Ver reportes actualizados
+                  </button>
+                </div>
+              )}
             </section>
           )}
         </div>

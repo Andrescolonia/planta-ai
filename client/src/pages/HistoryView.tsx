@@ -1,5 +1,6 @@
-import { ChevronDown, Filter, Search } from 'lucide-react';
+import { ChevronDown, Filter, Inbox, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { EmptyState } from '../components/EmptyState';
 import { api } from '../services/api';
 import type { CaseItem, ZoneItem } from '../types';
 import {
@@ -159,34 +160,46 @@ export function HistoryView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-card">
-              {visibleCases.map((item) => (
-                <tr key={item.id} className="transition hover:bg-accent/10">
-                  <td className="px-4 py-4 text-sm font-medium">#{item.id}</td>
-                  <td className="px-4 py-4 text-sm text-muted-foreground">{formatDate(item.createdAt)}</td>
-                  <td className="px-4 py-4">
-                    <p className="text-sm font-medium">{item.zoneName}</p>
-                    <p className="text-xs text-muted-foreground">{item.location}</p>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span
-                      className={`rounded border px-2 py-1 text-xs font-medium ${statusBadgeClass(
-                        item.diagnosticState
-                      )}`}
-                    >
-                      {diagnosticLabel(item.diagnosticState)}
-                    </span>
-                  </td>
-                  <td className="max-w-md px-4 py-4 text-sm text-muted-foreground">
-                    {item.irrigationRecommendation}
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${priorityDotClass(item.priority)}`} />
-                      <span className="text-sm">{priorityLabel(item.priority)}</span>
-                    </div>
+              {visibleCases.length > 0 ? (
+                visibleCases.map((item) => (
+                  <tr key={item.id} className="transition hover:bg-accent/10">
+                    <td className="px-4 py-4 text-sm font-medium">#{item.id}</td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">{formatDate(item.createdAt)}</td>
+                    <td className="px-4 py-4">
+                      <p className="text-sm font-medium">{item.zoneName}</p>
+                      <p className="text-xs text-muted-foreground">{item.location}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span
+                        className={`rounded border px-2 py-1 text-xs font-medium ${statusBadgeClass(
+                          item.diagnosticState
+                        )}`}
+                      >
+                        {diagnosticLabel(item.diagnosticState)}
+                      </span>
+                    </td>
+                    <td className="max-w-md px-4 py-4 text-sm text-muted-foreground">
+                      {item.irrigationRecommendation}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${priorityDotClass(item.priority)}`} />
+                        <span className="text-sm">{priorityLabel(item.priority)}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6">
+                    <EmptyState
+                      icon={Inbox}
+                      title="Sin casos para mostrar"
+                      description="Ajusta los filtros o guarda un nuevo análisis para alimentar el historial."
+                    />
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

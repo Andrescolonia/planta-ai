@@ -10,7 +10,35 @@ import type {
   ZoneItem
 } from '../types';
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:4000/api';
+function getDefaultApiUrl() {
+  const protocol = window.location.protocol || 'http:';
+  const hostname = window.location.hostname || 'localhost';
+
+  return `${protocol}//${hostname}:4000/api`;
+}
+
+function normalizeApiUrl(value: string) {
+  return value.replace(/\/$/, '');
+}
+
+function resolveApiUrl() {
+  const configuredUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  const defaultUrl = getDefaultApiUrl();
+  const openedFromLan =
+    window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+  if (!configuredUrl || configuredUrl === 'auto') {
+    return normalizeApiUrl(defaultUrl);
+  }
+
+  if (openedFromLan && configuredUrl.includes('localhost')) {
+    return normalizeApiUrl(defaultUrl);
+  }
+
+  return normalizeApiUrl(configuredUrl);
+}
+
+const API_URL = resolveApiUrl();
 const API_ROOT = API_URL.replace(/\/api\/?$/, '');
 
 async function parseResponse(response: Response) {
