@@ -9,13 +9,22 @@ interface AdminViewProps {
   user: DemoUser;
 }
 
+const roleLabels = {
+  invitado: 'Invitado',
+  usuario: 'Usuario',
+  supervisor: 'Supervisor',
+  administrador: 'Administrador'
+};
+
 export function AdminView({ user }: AdminViewProps) {
   const [users, setUsers] = useState<DemoUser[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [model, setModel] = useState<ModelInfo | null>(null);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
-  const [role, setRole] = useState('operador');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('usuario');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -41,11 +50,13 @@ export function AdminView({ user }: AdminViewProps) {
     setMessage('');
 
     try {
-      await api.createUser({ name, username, role, password: 'planta2026' });
+      await api.createUser({ name, username, email, role, password });
       setName('');
       setUsername('');
-      setRole('operador');
-      setMessage('Usuario demo creado correctamente.');
+      setEmail('');
+      setPassword('');
+      setRole('usuario');
+      setMessage('Usuario creado correctamente.');
       loadAdminData();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No fue posible crear el usuario.');
@@ -57,14 +68,14 @@ export function AdminView({ user }: AdminViewProps) {
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-foreground">Panel administrador</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gestión básica de usuarios demo, catálogo diagnóstico y configuración del modelo.
+          Gestión local de usuarios, catálogo diagnóstico y configuración del modelo.
         </p>
       </div>
 
       {user.role !== 'administrador' && (
         <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-          Estás usando un rol {user.role}. Para sustentar administración completa, entra como
-          <span className="font-medium"> admin</span>.
+          Estás usando un rol {roleLabels[user.role]}. La edición completa queda reservada para
+          administradores.
         </div>
       )}
 
@@ -87,8 +98,8 @@ export function AdminView({ user }: AdminViewProps) {
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-semibold">Usuarios demo</h3>
-              <p className="text-sm text-muted-foreground">Roles precargados para la exposición.</p>
+              <h3 className="font-semibold">Usuarios locales</h3>
+              <p className="text-sm text-muted-foreground">Cuentas registradas, invitados y permisos.</p>
             </div>
           </div>
 
@@ -96,26 +107,46 @@ export function AdminView({ user }: AdminViewProps) {
             {users.length > 0 ? (
               users.map((item) => (
                 <div key={item.id} className="flex items-center justify-between rounded-lg bg-muted/35 p-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.username}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.username}
+                      {item.email ? ` · ${item.email}` : ''}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {item.casesCount || 0} casos asociados
+                    </p>
                   </div>
-                  <span className="rounded border border-border px-2 py-1 text-xs font-medium capitalize">
-                    {item.role}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.isGuest && (
+                      <span className="rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                        Invitado
+                      </span>
+                    )}
+                    <span className="rounded border border-border px-2 py-1 text-xs font-medium">
+                      {roleLabels[item.role]}
+                    </span>
+                    <span
+                      className={`rounded px-2 py-1 text-xs font-medium ${
+                        item.active ? 'bg-green-100 text-green-800' : 'bg-red-50 text-red-700'
+                      }`}
+                    >
+                      {item.active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
                 </div>
               ))
             ) : (
               <EmptyState
                 icon={Inbox}
-                title="Sin usuarios demo"
-                description="El backend siembra usuarios automáticamente al iniciar la base local."
+                title="Sin usuarios"
+                description="El backend crea las cuentas iniciales al iniciar la base SQLite local."
               />
             )}
           </div>
 
           <form onSubmit={handleCreateUser} className="mt-5 rounded-lg border border-border p-4">
-            <h4 className="mb-3 text-sm font-semibold">Crear usuario demo</h4>
+            <h4 className="mb-3 text-sm font-semibold">Crear usuario</h4>
             <div className="grid gap-3 md:grid-cols-2">
               <input
                 value={name}
@@ -131,12 +162,27 @@ export function AdminView({ user }: AdminViewProps) {
                 required
                 className="rounded-lg border border-border bg-input-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Correo opcional"
+                className="rounded-lg border border-border bg-input-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Contraseña"
+                required
+                className="rounded-lg border border-border bg-input-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
               <select
                 value={role}
                 onChange={(event) => setRole(event.target.value)}
                 className="rounded-lg border border-border bg-input-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="operador">Operador</option>
+                <option value="usuario">Usuario</option>
                 <option value="supervisor">Supervisor</option>
                 <option value="administrador">Administrador</option>
               </select>

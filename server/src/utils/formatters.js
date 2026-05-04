@@ -45,11 +45,18 @@ export function formatUser(row) {
     nombre: row.name,
     username: row.username,
     usuario: row.username,
+    email: row.email,
+    correo: row.email,
     role: row.role,
     rol: row.role,
     active: Boolean(row.active),
     activo: Boolean(row.active),
-    createdAt: row.created_at
+    isGuest: Boolean(row.is_guest),
+    invitado: Boolean(row.is_guest),
+    casesCount: row.cases_count ?? row.casesCount ?? 0,
+    casos: row.cases_count ?? row.casesCount ?? 0,
+    createdAt: row.created_at,
+    lastLogin: row.last_login
   };
 }
 

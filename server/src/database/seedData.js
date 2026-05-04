@@ -1,19 +1,22 @@
-export const demoUsers = [
+export const initialUsers = [
   {
     name: 'Laura Mendez',
     username: 'operador',
+    email: 'operador@planta.local',
     password: 'planta2026',
-    role: 'operador'
+    role: 'usuario'
   },
   {
     name: 'Carlos Rivas',
     username: 'supervisor',
+    email: 'supervisor@planta.local',
     password: 'planta2026',
     role: 'supervisor'
   },
   {
     name: 'Andrea Salazar',
     username: 'admin',
+    email: 'admin@planta.local',
     password: 'planta2026',
     role: 'administrador'
   }

@@ -191,25 +191,39 @@ Iniciar backend en modo estable:
 npm run start:backend
 ```
 
-## Usuarios Demo
+## Acceso Local
 
-Todos usan la misma clave:
+La plataforma permite tres formas de ingreso:
+
+- Continuar como invitado para que visitantes del evento prueben el flujo sin
+  credenciales.
+- Registrarse desde la pantalla de acceso con una cuenta local guardada en
+  SQLite.
+- Entrar con una cuenta inicial para administracion.
+
+Cuenta inicial de administracion:
 
 ```text
-planta2026
+usuario: admin
+clave:   planta2026
 ```
 
-Usuarios:
+Cuentas iniciales adicionales para pruebas internas:
 
-- `operador`
-- `supervisor`
-- `admin`
+```text
+supervisor / planta2026
+operador   / planta2026
+```
+
+El rol `operador` se conserva como usuario operativo inicial, pero la pantalla
+principal ya no muestra tarjetas de roles precargados.
 
 ## Flujo Principal De Sustentacion
 
 1. Abrir `http://localhost:5173` o `http://IP_DEL_PC:5173`.
 2. Entrar desde la landing con `Ingresar a la plataforma`.
-3. Iniciar sesion con `operador` y clave `planta2026`.
+3. Continuar como invitado, registrar un usuario nuevo o iniciar sesion con
+   `admin` y clave `planta2026`.
 4. Ir a `Nuevo analisis`.
 5. Seleccionar zona verde y escribir ubicacion especifica.
 6. Subir una fotografia de planta.
@@ -231,7 +245,7 @@ Captura -> Preproceso -> Clasificacion -> Resultado
 Al iniciar el backend se crea automaticamente:
 
 - Base SQLite en `server/data/planta.sqlite`
-- Usuarios demo
+- Usuarios iniciales, cuentas registradas e invitados locales
 - Zonas verdes institucionales
 - Recomendaciones por estado diagnostico
 - Casos historicos de ejemplo
@@ -244,7 +258,9 @@ La base de datos y las imagenes subidas quedan en el PC local.
 ```http
 GET  /api/health
 POST /api/auth/login
-GET  /api/auth/demo-users
+POST /api/auth/register
+POST /api/auth/guest
+GET  /api/auth/me
 GET  /api/dashboard
 POST /api/analysis/analyze
 GET  /api/cases
@@ -256,12 +272,25 @@ GET  /api/admin/recommendations
 GET  /api/admin/model
 ```
 
-## Modo Demo De Analisis
+## Motor De Analisis
 
-El servicio `server/src/services/analysisService.js` concentra el motor de
-analisis. En esta fase usa `ANALYSIS_MODE=demo`, devuelve resultados realistas y
-estables, y queda preparado para reemplazarse por un modelo real de IA sin
-reescribir las pantallas ni las rutas principales.
+El servicio `server/src/services/analysisService.js` concentra dos motores:
+
+- `ANALYSIS_MODE=demo`: motor local deterministico para exposiciones sin
+  internet ni clave externa.
+- `ANALYSIS_MODE=openai`: motor real con OpenAI Vision usando la Responses API.
+
+Para activar OpenAI, crea `.env` desde `.env.example` o `.env.sample` y define:
+
+```env
+ANALYSIS_MODE=openai
+OPENAI_API_KEY=sk-tu_clave_real
+OPENAI_MODEL=gpt-5.4-mini
+```
+
+En modo OpenAI, el sistema valida si la imagen contiene una planta evaluable. Si
+la imagen no es una planta, devuelve un error claro y no guarda el caso. Para
+este modo se recomiendan imagenes `JPG`, `PNG` o `WEBP`.
 
 ## Notas De Solucion De Problemas
 

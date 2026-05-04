@@ -1,17 +1,110 @@
-import { exec } from './connection.js';
+import { all, exec, get, run } from './connection.js';
+import { hashPassword, normalizeEmail, normalizeRole } from '../services/authService.js';
 
-export async function createSchema() {
-  await exec(`
-    CREATE TABLE IF NOT EXISTS users (
+function usersTableSql(tableName = 'users', ifNotExists = true) {
+  return `
+    CREATE TABLE ${ifNotExists ? 'IF NOT EXISTS ' : ''}${tableName} (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       username TEXT NOT NULL UNIQUE,
-      password TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('operador', 'supervisor', 'administrador')),
+      email TEXT UNIQUE,
+      password_hash TEXT,
+      role TEXT NOT NULL CHECK (role IN ('invitado', 'usuario', 'supervisor', 'administrador')),
       active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      is_guest INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_login TEXT
     );
+  `;
+}
 
+async function createUserIndexes() {
+  await exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email
+    ON users(email)
+    WHERE email IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+    CREATE INDEX IF NOT EXISTS idx_users_active ON users(active);
+  `);
+}
+
+async function createOrMigrateUsersTable() {
+  const table = await get(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'"
+  );
+
+  if (!table) {
+    await exec(usersTableSql());
+    await createUserIndexes();
+    return;
+  }
+
+  const columns = await all('PRAGMA table_info(users)');
+  const columnNames = new Set(columns.map((column) => column.name));
+  const hasNewRoleCheck = String(table.sql || '').includes("'invitado'");
+  const needsMigration =
+    !columnNames.has('email') ||
+    !columnNames.has('password_hash') ||
+    !columnNames.has('is_guest') ||
+    !columnNames.has('last_login') ||
+    !hasNewRoleCheck;
+
+  if (!needsMigration) {
+    await createUserIndexes();
+    return;
+  }
+
+  const existingUsers = await all('SELECT * FROM users');
+
+  await exec('PRAGMA foreign_keys = OFF;');
+  await exec(`
+    ${usersTableSql('users_next', false)}
+    DROP TABLE users;
+    ALTER TABLE users_next RENAME TO users;
+  `);
+
+  for (const user of existingUsers) {
+    const passwordHash =
+      user.password_hash || (user.password ? await hashPassword(user.password) : null);
+
+    await run(
+      `INSERT INTO users (
+        id,
+        name,
+        username,
+        email,
+        password_hash,
+        role,
+        active,
+        is_guest,
+        created_at,
+        last_login
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        user.id,
+        user.name,
+        user.username,
+        normalizeEmail(user.email),
+        passwordHash,
+        normalizeRole(user.role),
+        user.active ?? 1,
+        user.is_guest ?? 0,
+        user.created_at,
+        user.last_login ?? null
+      ]
+    );
+  }
+
+  await exec('PRAGMA foreign_keys = ON;');
+  await createUserIndexes();
+}
+
+export async function createSchema() {
+  await createOrMigrateUsersTable();
+
+  await exec(`
     CREATE TABLE IF NOT EXISTS zones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,

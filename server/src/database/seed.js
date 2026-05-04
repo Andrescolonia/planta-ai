@@ -1,5 +1,6 @@
 import { all, get, run } from './connection.js';
-import { demoCases, demoRecommendations, demoUsers, demoZones } from './seedData.js';
+import { hashPassword, normalizeEmail, normalizeRole, normalizeUsername } from '../services/authService.js';
+import { demoCases, demoRecommendations, demoZones, initialUsers } from './seedData.js';
 
 function isoDaysAgo(daysAgo) {
   const date = new Date();
@@ -9,16 +10,47 @@ function isoDaysAgo(daysAgo) {
 }
 
 async function seedUsers() {
-  const { total } = await get('SELECT COUNT(*) AS total FROM users');
-  if (total > 0) {
-    return;
-  }
+  for (const user of initialUsers) {
+    const username = normalizeUsername(user.username);
+    const existing = await get('SELECT * FROM users WHERE username = ?', [username]);
 
-  for (const user of demoUsers) {
+    if (existing) {
+      const updates = [];
+      const params = [];
+
+      if (!existing.email && user.email) {
+        updates.push('email = ?');
+        params.push(normalizeEmail(user.email));
+      }
+
+      if (!existing.password_hash) {
+        updates.push('password_hash = ?');
+        params.push(await hashPassword(user.password));
+      }
+
+      if (normalizeRole(existing.role) !== existing.role) {
+        updates.push('role = ?');
+        params.push(normalizeRole(existing.role));
+      }
+
+      if (updates.length > 0) {
+        params.push(existing.id);
+        await run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+      }
+
+      continue;
+    }
+
     await run(
-      `INSERT INTO users (name, username, password, role)
-       VALUES (?, ?, ?, ?)`,
-      [user.name, user.username, user.password, user.role]
+      `INSERT INTO users (name, username, email, password_hash, role, active, is_guest)
+       VALUES (?, ?, ?, ?, ?, 1, 0)`,
+      [
+        user.name,
+        username,
+        normalizeEmail(user.email),
+        await hashPassword(user.password),
+        normalizeRole(user.role)
+      ]
     );
   }
 }

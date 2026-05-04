@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   FileText,
   History,
+  ImageOff,
   Loader2,
   RotateCcw,
   Save,
@@ -19,6 +20,19 @@ interface AnalysisViewProps {
   onNavigate: (view: ViewKey) => void;
 }
 
+const maxImageSizeMb = 8;
+const demoAcceptedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
+const openAiAcceptedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+const demoAcceptedMimeTypes = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif'
+]);
+const openAiAcceptedMimeTypes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+
 const defaultStages = [
   { key: 'captura', label: 'Captura' },
   { key: 'preproceso', label: 'Preproceso' },
@@ -26,26 +40,62 @@ const defaultStages = [
   { key: 'resultado', label: 'Resultado' }
 ];
 
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function fileExtension(fileName: string) {
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex >= 0 ? fileName.slice(dotIndex).toLowerCase() : '';
+}
+
+function validateImageFile(file: File, openAiMode: boolean) {
+  const acceptedExtensions = openAiMode ? openAiAcceptedExtensions : demoAcceptedExtensions;
+  const acceptedMimeTypes = openAiMode ? openAiAcceptedMimeTypes : demoAcceptedMimeTypes;
+  const extension = fileExtension(file.name);
+  const hasAcceptedType = acceptedMimeTypes.has(file.type);
+  const hasGenericType = !file.type || file.type === 'application/octet-stream';
+  const hasAcceptedExtension = acceptedExtensions.includes(extension);
+  const sizeMb = file.size / 1024 / 1024;
+
+  if (!hasAcceptedType && !(hasGenericType && hasAcceptedExtension)) {
+    return openAiMode
+      ? 'Formato no soportado para OpenAI. Usa JPG, PNG o WEBP.'
+      : 'Formato no soportado. Usa JPG, PNG, WEBP, HEIC o HEIF.';
+  }
+
+  if (sizeMb > maxImageSizeMb) {
+    return `La imagen supera el límite de ${maxImageSizeMb} MB.`;
+  }
+
+  return '';
+}
+
 export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [zones, setZones] = useState<ZoneItem[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [analysisMode, setAnalysisMode] = useState('demo');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [resultImageFailed, setResultImageFailed] = useState(false);
   const [zoneId, setZoneId] = useState('');
   const [location, setLocation] = useState('');
   const [activeStage, setActiveStage] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [savedCaseId, setSavedCaseId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api
-      .zones()
-      .then((response) => {
-        setZones(response.zones);
-        if (response.zones[0]) {
-          setZoneId(String(response.zones[0].id));
+    Promise.all([api.zones(), api.health()])
+      .then(([zonesResponse, healthResponse]) => {
+        setZones(zonesResponse.zones);
+        setAnalysisMode(healthResponse.mode || 'demo');
+        if (zonesResponse.zones[0]) {
+          setZoneId(String(zonesResponse.zones[0].id));
         }
       })
       .catch(() => setZones([]));
@@ -70,7 +120,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
 
     setActiveStage(0);
     const timers = defaultStages.map((_, index) =>
-      window.setTimeout(() => setActiveStage(index), index * 520)
+      window.setTimeout(() => setActiveStage(index), index * 650)
     );
 
     return () => timers.forEach(window.clearTimeout);
@@ -80,9 +130,29 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
     () => zones.find((zone) => String(zone.id) === zoneId),
     [zoneId, zones]
   );
+  const openAiMode = analysisMode === 'openai';
+  const acceptedInput = openAiMode
+    ? '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp'
+    : '.jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif';
+  const analyzedImageUrl = useMemo(
+    () => api.imageUrl(analysis?.uploadedImage.url || analysis?.uploadedImage.path),
+    [analysis]
+  );
 
   function setFile(file: File) {
+    const validationError = validateImageFile(file, openAiMode);
+
+    if (validationError) {
+      setSelectedFile(null);
+      setAnalysis(null);
+      setSavedCaseId(null);
+      setError(validationError);
+      return;
+    }
+
     setSelectedFile(file);
+    setPreviewFailed(false);
+    setResultImageFailed(false);
     setAnalysis(null);
     setSavedCaseId(null);
     setError('');
@@ -90,6 +160,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
+    setDragging(false);
     const file = event.dataTransfer.files[0];
 
     if (file) {
@@ -103,6 +174,12 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
       return;
     }
 
+    const validationError = validateImageFile(selectedFile, openAiMode);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     if (!zoneId) {
       setError('Selecciona una zona verde para asociar el análisis.');
       return;
@@ -111,14 +188,15 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
     setAnalyzing(true);
     setError('');
     setAnalysis(null);
+    setSavedCaseId(null);
 
     const formData = new FormData();
     formData.append('image', selectedFile);
     formData.append('zoneId', zoneId);
-    formData.append('location', location || selectedZone?.name || 'Ubicación sin especificar');
+    formData.append('location', location.trim() || selectedZone?.name || 'Ubicación sin especificar');
 
     try {
-      const response = await api.analyze(formData);
+      const [response] = await Promise.all([api.analyze(formData), wait(2300)]);
       setAnalysis(response);
       setActiveStage(defaultStages.length - 1);
     } catch (requestError) {
@@ -129,32 +207,42 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
   }
 
   async function handleSaveCase() {
-    if (!analysis) {
+    if (!analysis || saving || savedCaseId) {
       return;
     }
 
+    setSaving(true);
     setError('');
 
     try {
       const response = await api.saveCase({
         ...analysis.suggestedCase,
         zoneId: Number(zoneId),
-        location: location || selectedZone?.name || 'Ubicación sin especificar',
+        location: location.trim() || selectedZone?.name || 'Ubicación sin especificar',
         uploadedImage: analysis.uploadedImage,
         createdBy: user.id
       });
       setSavedCaseId(response.case.id);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No fue posible guardar el caso.');
+    } finally {
+      setSaving(false);
     }
   }
 
   function reset() {
     setSelectedFile(null);
+    setPreviewFailed(false);
+    setResultImageFailed(false);
     setAnalysis(null);
     setSavedCaseId(null);
     setError('');
     setLocation('');
+    setActiveStage(0);
+
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
   }
 
   return (
@@ -162,7 +250,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-foreground">Nuevo análisis de imagen</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Carga una fotografía tomada en campo para obtener un diagnóstico demo estable.
+          Sube una fotografía real de una planta y obtén un diagnóstico visual en modo local.
         </p>
       </div>
 
@@ -178,13 +266,17 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
             {!previewUrl ? (
               <label
                 onDrop={handleDrop}
+                onDragEnter={() => setDragging(true)}
+                onDragLeave={() => setDragging(false)}
                 onDragOver={(event) => event.preventDefault()}
-                className="flex min-h-[340px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-10 text-center transition hover:border-secondary hover:bg-secondary/5"
+                className={`flex min-h-[340px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 text-center transition ${
+                  dragging ? 'border-secondary bg-secondary/5' : 'border-border hover:border-secondary hover:bg-secondary/5'
+                }`}
               >
                 <input
                   ref={inputRef}
                   type="file"
-                  accept="image/*"
+                  accept={acceptedInput}
                   className="hidden"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
@@ -199,7 +291,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                 <h3 className="text-lg font-semibold">Arrastra una imagen aquí</h3>
                 <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                   También puedes hacer clic para seleccionar una foto desde el equipo o un celular
-                  conectado.
+                  conectado a la red local.
                 </p>
                 <span className="mt-5 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground">
                   Seleccionar archivo
@@ -207,7 +299,24 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
               </label>
             ) : (
               <div className="overflow-hidden rounded-lg">
-                <img src={previewUrl} alt="Planta seleccionada" className="h-[420px] w-full object-cover" />
+                {previewFailed ? (
+                  <div className="flex h-[420px] flex-col items-center justify-center bg-muted/35 p-8 text-center">
+                    <ImageOff className="mb-4 h-12 w-12 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold">Vista previa no disponible</h3>
+                    <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                      Algunos formatos de celular pueden no mostrarse en el navegador, pero el archivo
+                      se puede enviar al motor demo para diagnóstico.
+                    </p>
+                  </div>
+                ) : (
+                  <img
+                    src={previewUrl}
+                    alt="Planta seleccionada"
+                    onError={() => setPreviewFailed(true)}
+                    className="h-[420px] w-full object-cover"
+                  />
+                )}
+
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-4">
                   <div>
                     <p className="font-medium">{selectedFile?.name}</p>
@@ -215,17 +324,18 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                       {selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : ''}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={reset}
-                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm transition hover:bg-accent/20"
+                      disabled={analyzing || saving}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm transition hover:bg-accent/20 disabled:opacity-60"
                     >
                       <RotateCcw className="h-4 w-4" />
                       Cambiar imagen
                     </button>
                     <button
                       onClick={handleAnalyze}
-                      disabled={analyzing}
+                      disabled={analyzing || saving}
                       className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition hover:bg-secondary/90 disabled:opacity-60"
                     >
                       {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
@@ -248,7 +358,11 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                     <div key={stage.key} className="rounded-lg border border-border p-4">
                       <div
                         className={`mb-3 flex h-9 w-9 items-center justify-center rounded-full ${
-                          completed ? 'bg-green-600 text-white' : active ? 'bg-accent text-accent-foreground' : 'bg-muted'
+                          completed
+                            ? 'bg-green-600 text-white'
+                            : active
+                              ? 'bg-accent text-accent-foreground'
+                              : 'bg-muted'
                         }`}
                       >
                         {active && analyzing ? (
@@ -283,6 +397,45 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                 )}
               </div>
 
+              <div className="mb-5 grid gap-4 md:grid-cols-2">
+                <div className="overflow-hidden rounded-lg border border-border">
+                  {analyzedImageUrl && !resultImageFailed ? (
+                    <img
+                      src={analyzedImageUrl}
+                      alt="Imagen analizada"
+                      onError={() => setResultImageFailed(true)}
+                      className="h-56 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-56 flex-col items-center justify-center bg-muted/35 p-4 text-center">
+                      <ImageOff className="mb-3 h-10 w-10 text-muted-foreground" />
+                      <p className="text-sm font-medium">Imagen subida correctamente</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{analysis.uploadedImage.originalName}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Archivo analizado
+                  </p>
+                  <p className="mt-2 text-sm font-medium">{analysis.uploadedImage.originalName}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {(analysis.uploadedImage.size / 1024 / 1024).toFixed(2)} MB · {analysis.uploadedImage.mimeType}
+                  </p>
+                  <div className="mt-4 rounded-lg bg-muted/35 p-3">
+                    <p className="text-xs text-muted-foreground">Zona asociada</p>
+                    <p className="mt-1 text-sm font-semibold">{selectedZone?.name || 'Sin zona'}</p>
+                  </div>
+                  {analysis.result.suggestedCommonName && (
+                    <div className="mt-3 rounded-lg bg-muted/35 p-3">
+                      <p className="text-xs text-muted-foreground">Nombre común sugerido</p>
+                      <p className="mt-1 text-sm font-semibold">{analysis.result.suggestedCommonName}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="grid gap-4 md:grid-cols-4">
                 <ResultMetric label="Estado" value={diagnosticLabel(analysis.result.diagnosticState)} tone="green" />
                 <ResultMetric label="Confianza" value={`${analysis.result.confidence.toFixed(1)}%`} tone="blue" />
@@ -302,14 +455,27 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                 <p className="text-sm leading-6 text-muted-foreground">{analysis.result.observations}</p>
               </div>
 
+              {analysis.result.visibleIndicators && analysis.result.visibleIndicators.length > 0 && (
+                <div className="mt-4 rounded-lg border border-border p-4">
+                  <h4 className="mb-3 text-sm font-semibold">Indicadores visibles</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.result.visibleIndicators.map((indicator) => (
+                      <span key={indicator} className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
+                        {indicator}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   onClick={handleSaveCase}
-                  disabled={Boolean(savedCaseId)}
+                  disabled={Boolean(savedCaseId) || saving}
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
                 >
-                  <Save className="h-4 w-4" />
-                  {savedCaseId ? 'Caso guardado' : 'Guardar caso'}
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {savedCaseId ? 'Caso guardado' : saving ? 'Guardando...' : 'Guardar caso'}
                 </button>
                 <button
                   onClick={() => onNavigate('historial')}
@@ -360,6 +526,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
             <select
               value={zoneId}
               onChange={(event) => setZoneId(event.target.value)}
+              disabled={analyzing || saving}
               className="mb-4 w-full rounded-lg border border-border bg-input-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
             >
               {zones.map((zone) => (
@@ -373,6 +540,7 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
             <input
               value={location}
               onChange={(event) => setLocation(event.target.value)}
+              disabled={analyzing || saving}
               placeholder="Ej. Jardinera costado norte"
               className="w-full rounded-lg border border-border bg-input-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
             />
@@ -385,8 +553,10 @@ export function AnalysisView({ user, onNavigate }: AnalysisViewProps) {
                 'Imagen clara y enfocada de la planta.',
                 'Buena iluminación natural o artificial.',
                 'Distancia aproximada de 30 a 100 cm.',
-                'Formatos JPG, PNG, WEBP, HEIC o HEIF.',
-                'Tamaño máximo configurado: 8 MB.'
+                openAiMode
+                  ? 'Formatos compatibles con OpenAI: JPG, PNG o WEBP.'
+                  : 'Formatos JPG, PNG, WEBP, HEIC o HEIF.',
+                `Tamaño máximo configurado: ${maxImageSizeMb} MB.`
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />

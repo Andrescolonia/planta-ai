@@ -32,6 +32,11 @@ export const env = {
   uploadDir,
   uploadUrlPrefix: '/uploads',
   analysisMode: process.env.ANALYSIS_MODE || 'demo',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
+  openaiBaseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  openaiModel: process.env.OPENAI_MODEL || 'gpt-5.4-mini',
+  openaiTimeoutMs: Number(process.env.OPENAI_TIMEOUT_MS || 30000),
+  openaiFallbackToDemo: process.env.OPENAI_FALLBACK_TO_DEMO === 'true',
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB || 8),
   projectRoot,
   serverRoot

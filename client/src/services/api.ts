@@ -91,15 +91,33 @@ export const api = {
     return request<{ status: string; service: string; mode: string }>('/health');
   },
 
-  login(username: string, password: string) {
+  login(identifier: string, password: string) {
     return request<LoginResponse>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ identifier, password })
     });
   },
 
-  demoUsers() {
-    return request<{ users: DemoUser[]; passwordHint: string }>('/auth/demo-users');
+  register(payload: { name: string; username: string; email?: string; password: string }) {
+    return request<LoginResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  guestLogin(name?: string) {
+    return request<LoginResponse>('/auth/guest', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    });
+  },
+
+  me(token: string) {
+    return request<LoginResponse>('/auth/me', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
   },
 
   dashboard() {
@@ -136,7 +154,13 @@ export const api = {
     return request<{ users: DemoUser[] }>('/admin/users');
   },
 
-  createUser(payload: { name: string; username: string; role: string; password?: string }) {
+  createUser(payload: {
+    name: string;
+    username: string;
+    email?: string;
+    role: string;
+    password: string;
+  }) {
     return request<{ user: DemoUser }>('/admin/users', {
       method: 'POST',
       body: JSON.stringify(payload)

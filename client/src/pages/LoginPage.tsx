@@ -1,5 +1,13 @@
-import { ArrowLeft, ArrowRight, LockKeyhole, UserRound } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  LockKeyhole,
+  Mail,
+  UserPlus,
+  UserRound,
+  type LucideIcon
+} from 'lucide-react';
+import { FormEvent, useState } from 'react';
 import heroImage from '../assets/planta-botanical-hero.svg';
 import { api } from '../services/api';
 import type { DemoUser, Session } from '../types';
@@ -9,40 +17,78 @@ interface LoginPageProps {
   onLogin: (user: DemoUser, session: Session) => void;
 }
 
-const roleOptions = [
-  { label: 'Operador', username: 'operador', description: 'Carga imágenes y guarda casos.' },
-  { label: 'Supervisor', username: 'supervisor', description: 'Revisa zonas, reportes e historial.' },
-  { label: 'Administrador', username: 'admin', description: 'Gestiona usuarios y catálogo demo.' }
-];
+type AccessMode = 'login' | 'register';
+type LoadingAction = 'login' | 'register' | 'guest' | null;
 
 export function LoginPage({ onBack, onLogin }: LoginPageProps) {
-  const [username, setUsername] = useState('operador');
-  const [password, setPassword] = useState('planta2026');
-  const [demoUsers, setDemoUsers] = useState<DemoUser[]>([]);
+  const [mode, setMode] = useState<AccessMode>('login');
+  const [identifier, setIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [guestName, setGuestName] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
 
-  useEffect(() => {
-    api
-      .demoUsers()
-      .then((response) => setDemoUsers(response.users))
-      .catch(() => setDemoUsers([]));
-  }, []);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
-    setLoading(true);
+    setLoadingAction('login');
 
     try {
-      const response = await api.login(username, password);
+      const response = await api.login(identifier, loginPassword);
       onLogin(response.user, response.session);
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'No fue posible iniciar sesión.');
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   }
+
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+
+    if (registerPassword !== confirmPassword) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setLoadingAction('register');
+
+    try {
+      const response = await api.register({
+        name,
+        username,
+        email,
+        password: registerPassword
+      });
+      onLogin(response.user, response.session);
+    } catch (registerError) {
+      setError(registerError instanceof Error ? registerError.message : 'No fue posible crear la cuenta.');
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function handleGuestAccess() {
+    setError('');
+    setLoadingAction('guest');
+
+    try {
+      const response = await api.guestLogin(guestName);
+      onLogin(response.user, response.session);
+    } catch (guestError) {
+      setError(guestError instanceof Error ? guestError.message : 'No fue posible ingresar como invitado.');
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  const loading = loadingAction !== null;
 
   return (
     <main className="grid min-h-screen bg-background lg:grid-cols-[1.02fr_0.98fr]">
@@ -57,7 +103,7 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
           </p>
           <h1 className="mt-3 text-4xl font-semibold">P.L.A.N.T.A.</h1>
           <p className="mt-3 max-w-md text-sm leading-6 text-white/76">
-            Plataforma de apoyo operativo para diagnóstico visual y gestión de zonas verdes.
+            Acceso local para visitantes, personal operativo y administradores de la exposición.
           </p>
         </div>
       </section>
@@ -72,84 +118,211 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
             Volver al inicio
           </button>
 
-          <div className="mb-8">
+          <div className="mb-6">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-secondary">
-              Acceso demo local
+              Acceso local al evento
             </p>
-            <h2 className="mt-2 text-3xl font-semibold text-foreground">Iniciar sesión</h2>
+            <h2 className="mt-2 text-3xl font-semibold text-foreground">Entrar a P.L.A.N.T.A.</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Usa cualquiera de los roles precargados. La contraseña demo es
-              <span className="font-medium text-foreground"> planta2026</span>.
+              Ingresa con una cuenta local, crea un usuario nuevo o continúa como invitado para probar
+              el flujo completo desde cualquier dispositivo conectado a la red.
             </p>
           </div>
 
-          <div className="mb-5 grid gap-3 md:grid-cols-3">
-            {roleOptions.map((role) => (
-              <button
-                key={role.username}
-                type="button"
-                onClick={() => {
-                  setUsername(role.username);
-                  setPassword('planta2026');
-                }}
-                className={`rounded-lg border p-3 text-left transition ${
-                  username === role.username
-                    ? 'border-secondary bg-secondary/10'
-                    : 'border-border bg-card hover:bg-accent/10'
-                }`}
-              >
-                <p className="text-sm font-semibold text-foreground">{role.label}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{role.description}</p>
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={handleSubmit} className="rounded-lg border border-border bg-card p-5">
-            <label className="mb-2 block text-sm font-medium text-foreground">Usuario</label>
-            <div className="relative mb-4">
-              <UserRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                className="w-full rounded-lg border border-border bg-input-background py-3 pl-10 pr-3 outline-none transition focus:ring-2 focus:ring-ring"
-              />
-            </div>
-
-            <label className="mb-2 block text-sm font-medium text-foreground">Contraseña</label>
-            <div className="relative mb-4">
-              <LockKeyhole className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-lg border border-border bg-input-background py-3 pl-10 pr-3 outline-none transition focus:ring-2 focus:ring-ring"
-              />
-            </div>
-
-            {error && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
+          <section className="mb-5 rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+                <UserRound className="h-5 w-5" />
               </div>
-            )}
+              <div>
+                <h3 className="text-sm font-semibold text-green-800">Ingreso rápido para visitantes</h3>
+                <p className="text-xs text-green-700">Ideal para interacción libre durante la muestra.</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 md:flex-row">
+              <input
+                value={guestName}
+                onChange={(event) => setGuestName(event.target.value)}
+                placeholder="Nombre opcional"
+                disabled={loading}
+                className="flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={handleGuestAccess}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition hover:bg-secondary/90 disabled:opacity-60"
+              >
+                {loadingAction === 'guest' ? 'Ingresando...' : 'Continuar como invitado'}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </section>
 
+          <div className="mb-5 flex gap-2 rounded-lg bg-muted/35 p-2">
             <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-3 font-medium text-secondary-foreground transition hover:bg-secondary/90 disabled:opacity-60"
+              type="button"
+              onClick={() => setMode('login')}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                mode === 'login'
+                  ? 'border-secondary bg-card text-foreground'
+                  : 'border-border text-muted-foreground hover:bg-accent/10'
+              }`}
             >
-              {loading ? 'Validando sesión...' : 'Entrar'}
-              <ArrowRight className="h-4 w-4" />
+              Iniciar sesión
             </button>
-          </form>
+            <button
+              type="button"
+              onClick={() => setMode('register')}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                mode === 'register'
+                  ? 'border-secondary bg-card text-foreground'
+                  : 'border-border text-muted-foreground hover:bg-accent/10'
+              }`}
+            >
+              Registrarse
+            </button>
+          </div>
 
-          {demoUsers.length > 0 && (
-            <p className="mt-4 text-xs text-muted-foreground">
-              Usuarios disponibles:{' '}
-              {demoUsers.map((user) => `${user.username} (${user.role})`).join(', ')}.
-            </p>
+          {mode === 'login' ? (
+            <form onSubmit={handleLogin} className="rounded-lg border border-border bg-card p-5">
+              <label className="mb-2 block text-sm font-medium text-foreground">Usuario o correo</label>
+              <div className="relative mb-4">
+                <UserRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  disabled={loading}
+                  placeholder="admin, supervisor o correo"
+                  className="w-full rounded-lg border border-border bg-input-background py-3 pl-10 pr-3 outline-none transition focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <label className="mb-2 block text-sm font-medium text-foreground">Contraseña</label>
+              <div className="relative mb-4">
+                <LockKeyhole className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-lg border border-border bg-input-background py-3 pl-10 pr-3 outline-none transition focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {error && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-3 font-medium text-secondary-foreground transition hover:bg-secondary/90 disabled:opacity-60"
+              >
+                {loadingAction === 'login' ? 'Validando...' : 'Entrar'}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="rounded-lg border border-border bg-card p-5">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field
+                  icon={UserRound}
+                  label="Nombre completo"
+                  value={name}
+                  onChange={setName}
+                  disabled={loading}
+                  required
+                />
+                <Field
+                  icon={UserPlus}
+                  label="Usuario"
+                  value={username}
+                  onChange={setUsername}
+                  disabled={loading}
+                  required
+                />
+                <Field
+                  icon={Mail}
+                  label="Correo"
+                  value={email}
+                  onChange={setEmail}
+                  disabled={loading}
+                  type="email"
+                />
+                <Field
+                  icon={LockKeyhole}
+                  label="Contraseña"
+                  value={registerPassword}
+                  onChange={setRegisterPassword}
+                  disabled={loading}
+                  type="password"
+                  required
+                />
+              </div>
+
+              <div className="mt-3">
+                <Field
+                  icon={LockKeyhole}
+                  label="Confirmar contraseña"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  disabled={loading}
+                  type="password"
+                  required
+                />
+              </div>
+
+              {error && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-3 font-medium text-secondary-foreground transition hover:bg-secondary/90 disabled:opacity-60"
+              >
+                {loadingAction === 'register' ? 'Creando cuenta...' : 'Crear cuenta e ingresar'}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </form>
           )}
+
         </div>
       </section>
     </main>
+  );
+}
+
+interface FieldProps {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  type?: string;
+  required?: boolean;
+}
+
+function Field({ icon: Icon, label, value, onChange, disabled, type = 'text', required }: FieldProps) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-foreground">{label}</span>
+      <span className="relative block">
+        <Icon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={disabled}
+          required={required}
+          className="w-full rounded-lg border border-border bg-input-background py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
+        />
+      </span>
+    </label>
   );
 }

@@ -33,7 +33,17 @@ const menuItems: Array<{ id: ViewKey; icon: typeof LayoutDashboard; label: strin
   { id: 'admin', icon: Settings, label: 'Administrador' }
 ];
 
+const roleLabels = {
+  invitado: 'Invitado',
+  usuario: 'Usuario',
+  supervisor: 'Supervisor',
+  administrador: 'Administrador'
+};
+
 export function AppShell({ user, currentView, onNavigate, onLogout, children }: AppShellProps) {
+  const visibleMenuItems = menuItems.filter(
+    (item) => item.id !== 'admin' || user.role === 'administrador'
+  );
   const initials = user.name
     .split(' ')
     .map((part) => part[0])
@@ -57,7 +67,7 @@ export function AppShell({ user, currentView, onNavigate, onLogout, children }: 
         </div>
 
         <nav className="flex-1 space-y-1 p-4">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const active = currentView === item.id;
 
@@ -85,7 +95,7 @@ export function AppShell({ user, currentView, onNavigate, onLogout, children }: 
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-white">{user.name}</p>
-              <p className="text-xs capitalize text-white/58">{user.role}</p>
+              <p className="text-xs text-white/58">{roleLabels[user.role]}</p>
             </div>
           </div>
           <button
@@ -110,7 +120,7 @@ export function AppShell({ user, currentView, onNavigate, onLogout, children }: 
             </div>
 
             <nav className="flex gap-1 overflow-x-auto lg:hidden">
-              {menuItems.map((item) => {
+              {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
@@ -138,7 +148,7 @@ export function AppShell({ user, currentView, onNavigate, onLogout, children }: 
                 </div>
                 <div>
                   <p className="text-sm font-medium leading-none">{user.name}</p>
-                  <p className="mt-1 text-xs capitalize text-muted-foreground">{user.role}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{roleLabels[user.role]}</p>
                 </div>
               </div>
             </div>

@@ -10,7 +10,7 @@ import { ZonesView } from './pages/ZonesView';
 import { AppShell, type ViewKey } from './layouts/AppShell';
 import type { DemoUser, Session } from './types';
 
-const SESSION_KEY = 'planta-demo-session';
+const SESSION_KEY = 'planta-local-session';
 
 interface StoredSession {
   user: DemoUser;
@@ -46,6 +46,12 @@ export function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (user?.role !== 'administrador' && currentView === 'admin') {
+      setCurrentView('dashboard');
+    }
+  }, [currentView, user]);
+
   function handleLogin(nextUser: DemoUser, nextSession: Session) {
     setUser(nextUser);
     setSession(nextSession);
@@ -80,7 +86,7 @@ export function App() {
       {currentView === 'historial' && <HistoryView />}
       {currentView === 'zonas' && <ZonesView />}
       {currentView === 'reportes' && <ReportsView />}
-      {currentView === 'admin' && <AdminView user={user} />}
+      {currentView === 'admin' && user.role === 'administrador' && <AdminView user={user} />}
     </AppShell>
   );
 }

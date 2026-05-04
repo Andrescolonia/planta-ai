@@ -129,6 +129,13 @@ caseRouter.post(
       throw badRequest('La zona seleccionada no existe.');
     }
 
+    if (createdBy) {
+      const user = await get('SELECT id FROM users WHERE id = ? AND active = 1', [Number(createdBy)]);
+      if (!user) {
+        throw badRequest('El usuario asociado al caso no existe o no esta activo.');
+      }
+    }
+
     const recommendation = await get('SELECT * FROM recommendations WHERE diagnostic_state = ?', [
       diagnosticState
     ]);

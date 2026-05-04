@@ -1,15 +1,24 @@
-export type Role = 'operador' | 'supervisor' | 'administrador';
+export type Role = 'invitado' | 'usuario' | 'supervisor' | 'administrador';
 
-export interface DemoUser {
+export interface AppUser {
   id: number;
   name: string;
   nombre?: string;
   username: string;
   usuario?: string;
+  email?: string | null;
+  correo?: string | null;
   role: Role;
   rol?: Role;
   active?: boolean;
+  isGuest?: boolean;
+  invitado?: boolean;
+  casesCount?: number;
+  casos?: number;
+  lastLogin?: string | null;
 }
+
+export type DemoUser = AppUser;
 
 export interface Session {
   token: string;
@@ -19,7 +28,7 @@ export interface Session {
 
 export interface LoginResponse {
   message: string;
-  user: DemoUser;
+  user: AppUser;
   session: Session;
 }
 
@@ -77,6 +86,10 @@ export interface AnalysisStage {
 
 export interface AnalysisResult {
   mode: string;
+  isPlant?: boolean;
+  rejectionReason?: string;
+  visibleIndicators?: string[];
+  suggestedCommonName?: string;
   diagnosticState: string;
   confidence: number;
   riskLevel: string;
