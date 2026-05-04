@@ -13,8 +13,7 @@ La solucion se esta construyendo con:
 
 ## Estado Actual
 
-Fase 2 completada: backend local Express con SQLite, uploads, semillas demo y
-motor de analisis simulado.
+Fase 3 completada: frontend React navegable conectado al backend local.
 
 ```text
 planta-ai/
@@ -72,10 +71,26 @@ npm run dev:server
 npm run dev:client
 ```
 
+En Windows el backend usa arranque estable sin autorecarga. Si quieres modo
+watch durante desarrollo:
+
+```bash
+npm run dev:watch --workspace server
+```
+
 URLs esperadas:
 
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:4000/api/health`
+
+Flujo de uso recomendado para demo:
+
+1. Abrir `http://localhost:5173`.
+2. Entrar desde la landing con el boton de acceso.
+3. Usar un usuario demo: `operador`, `supervisor` o `admin`.
+4. Usar la contrasena `planta2026`.
+5. Ir a `Nuevo analisis`, subir una imagen, analizarla y guardar el caso.
+6. Revisar el caso en `Historial`, `Zonas verdes` y `Reportes`.
 
 Para abrir la plataforma desde otro dispositivo en la misma red local, usa la IP
 del PC anfitrion:
@@ -92,9 +107,8 @@ http://192.168.1.50:5173
 
 ## Siguientes Fases
 
-1. Construir navegacion y pantallas React del MVP.
-2. Conectar flujo de subida, analisis, historial y reportes.
-3. Pulir UI para sustentacion y verificar ejecucion en red local.
+1. Pulir detalles visuales finales para sustentacion.
+2. Verificar ejecucion completa en red local desde otro dispositivo.
 
 ## Backend Local
 
@@ -222,3 +236,21 @@ deterministicos a partir de la imagen y devuelve:
 
 Esta capa esta preparada para reemplazarse despues por un modelo real sin
 reescribir las rutas de la API.
+
+## Frontend React
+
+El frontend incluye:
+
+- Landing institucional de P.L.A.N.T.A.
+- Login demo con roles operador, supervisor y administrador.
+- Layout interno con barra lateral y barra superior.
+- Dashboard con KPIs, actividad reciente y graficas.
+- Nuevo analisis con drag and drop, vista previa, etapas visuales y resultado.
+- Guardado de casos contra SQLite.
+- Historial con filtros por fecha, estado, zona y prioridad.
+- Gestion de zonas verdes.
+- Reportes imprimibles desde el navegador.
+- Panel administrador con usuarios demo, catalogo de recomendaciones e informacion del modelo.
+
+El tema visual usa React + Tailwind CSS con paleta institucional basada en azul
+profundo, verde botanico, blanco roto, grises suaves y acentos dorados.

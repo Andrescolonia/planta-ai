@@ -1,61 +1,145 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  --azul-profundo: #102a43;
-  --verde-botanico: #237a57;
-  --verde-claro: #dbeee5;
-  --blanco-roto: #f7f7f2;
-  --gris-suave: #d7dde2;
-  --dorado: #b9975b;
-  color: var(--azul-profundo);
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  background: var(--blanco-roto);
+  --font-size: 16px;
+  --background: #f8f9f8;
+  --foreground: #1a1f1c;
+  --card: #ffffff;
+  --card-foreground: #1a1f1c;
+  --popover: #ffffff;
+  --popover-foreground: #1a1f1c;
+  --primary: #0a192f;
+  --primary-foreground: #ffffff;
+  --secondary: #2d5a27;
+  --secondary-foreground: #ffffff;
+  --muted: #e7ece8;
+  --muted-foreground: #66706a;
+  --accent: #d6ae37;
+  --accent-foreground: #0a192f;
+  --destructive: #c83232;
+  --destructive-foreground: #ffffff;
+  --border: rgba(10, 25, 47, 0.11);
+  --input: transparent;
+  --input-background: #ffffff;
+  --ring: #2d5a27;
+  --chart-1: #2d5a27;
+  --chart-2: #d6ae37;
+  --chart-3: #0a192f;
+  --chart-4: #60a561;
+  --chart-5: #c05621;
+  --radius: 0.5rem;
+  --sidebar: #0a192f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #2d5a27;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #152945;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #2d5a27;
 }
 
-* {
-  box-sizing: border-box;
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background: var(--background);
+    color: var(--foreground);
+    font-family:
+      Inter, Manrope, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
-.shell {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 32px;
-  background:
-    linear-gradient(135deg, rgba(16, 42, 67, 0.94), rgba(35, 122, 87, 0.86)),
-    var(--azul-profundo);
+.hero-panel {
+  background-position: left center;
+  background-size: cover;
 }
 
-.hero {
-  width: min(920px, 100%);
-  color: white;
+.planta-scrollbar {
+  scrollbar-color: rgba(45, 90, 39, 0.45) transparent;
 }
 
-.eyebrow {
-  margin: 0 0 12px;
-  color: var(--dorado);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
+@media print {
+  body {
+    background: #ffffff;
+  }
 
-h1 {
-  margin: 0;
-  font-size: clamp(3rem, 12vw, 7rem);
-  line-height: 0.95;
-}
+  .no-print {
+    display: none !important;
+  }
 
-.hero p:last-child {
-  max-width: 660px;
-  margin: 24px 0 0;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 1.18rem;
-  line-height: 1.7;
+  .printable-report {
+    padding: 0 !important;
+  }
+
+  .print-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
 }
