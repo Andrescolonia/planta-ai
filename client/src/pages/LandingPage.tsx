@@ -1,5 +1,5 @@
 import { ArrowRight, BarChart3, Droplets, Leaf, ShieldCheck } from 'lucide-react';
-import heroImage from '../assets/planta-campus-hero.png';
+import heroImage from '../assets/planta-botanical-hero.svg';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -10,7 +10,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
     <div className="min-h-screen bg-background">
       <section
         className="relative min-h-[88vh] overflow-hidden hero-panel"
-        style={{ backgroundImage: `url(${heroImage})` }}
+        style={{ backgroundImage: `url(${heroImage})`, backgroundPosition: 'center' }}
       >
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,25,47,0.96),rgba(10,25,47,0.78)_46%,rgba(45,90,39,0.5))]" />
         <div className="relative mx-auto flex min-h-[88vh] max-w-7xl flex-col justify-center px-6 py-16 lg:px-10">

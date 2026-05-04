@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, LockKeyhole, UserRound } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
-import heroImage from '../assets/planta-campus-hero.png';
+import heroImage from '../assets/planta-botanical-hero.svg';
 import { api } from '../services/api';
 import type { DemoUser, Session } from '../types';
 
@@ -48,7 +48,7 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
     <main className="grid min-h-screen bg-background lg:grid-cols-[1.02fr_0.98fr]">
       <section
         className="relative hidden min-h-screen overflow-hidden hero-panel lg:block"
-        style={{ backgroundImage: `url(${heroImage})` }}
+        style={{ backgroundImage: `url(${heroImage})`, backgroundPosition: 'center' }}
       >
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,25,47,0.18),rgba(10,25,47,0.94))]" />
         <div className="absolute bottom-0 left-0 right-0 p-10 text-white">
