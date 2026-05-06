@@ -1,8 +1,23 @@
-import { Cpu, Inbox, Plus, Tag, Users } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Cpu,
+  Database,
+  Globe2,
+  HardDrive,
+  Inbox,
+  Plus,
+  RefreshCw,
+  Server,
+  ShieldCheck,
+  Tag,
+  Users,
+  Wifi
+} from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { api } from '../services/api';
-import type { DemoUser, ModelInfo, Recommendation } from '../types';
+import type { DemoUser, ModelInfo, Recommendation, SystemStatus } from '../types';
 import { diagnosticLabel, priorityLabel, riskLabel } from '../utils/format';
 
 interface AdminViewProps {
@@ -20,6 +35,7 @@ export function AdminView({ user }: AdminViewProps) {
   const [users, setUsers] = useState<DemoUser[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [model, setModel] = useState<ModelInfo | null>(null);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -27,13 +43,15 @@ export function AdminView({ user }: AdminViewProps) {
   const [role, setRole] = useState('usuario');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [checkingConnection, setCheckingConnection] = useState(false);
 
   function loadAdminData() {
-    Promise.all([api.adminUsers(), api.recommendations(), api.modelInfo()])
-      .then(([usersResponse, recommendationsResponse, modelResponse]) => {
+    Promise.all([api.adminUsers(), api.recommendations(), api.modelInfo(), api.adminStatus()])
+      .then(([usersResponse, recommendationsResponse, modelResponse, statusResponse]) => {
         setUsers(usersResponse.users);
         setRecommendations(recommendationsResponse.recommendations);
         setModel(modelResponse);
+        setSystemStatus(statusResponse);
       })
       .catch((requestError) =>
         setError(requestError instanceof Error ? requestError.message : 'No fue posible cargar administración.')
@@ -60,6 +78,22 @@ export function AdminView({ user }: AdminViewProps) {
       loadAdminData();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No fue posible crear el usuario.');
+    }
+  }
+
+  async function handleConnectionTest() {
+    setCheckingConnection(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const [, statusResponse] = await Promise.all([api.health(), api.adminStatus()]);
+      setSystemStatus(statusResponse);
+      setMessage(`Conexión verificada a las ${new Date().toLocaleTimeString('es-CO')}.`);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'No fue posible probar la conexión.');
+    } finally {
+      setCheckingConnection(false);
     }
   }
 
@@ -90,6 +124,109 @@ export function AdminView({ user }: AdminViewProps) {
           {error}
         </div>
       )}
+
+      <section className="mb-6 rounded-lg border border-border bg-card p-5">
+        <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Activity className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Estado de exposición</h3>
+              <p className="text-sm text-muted-foreground">
+                Supervisión rápida del servidor, análisis, almacenamiento y límites activos.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleConnectionTest}
+            disabled={checkingConnection}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-accent/20 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${checkingConnection ? 'animate-spin' : ''}`} />
+            {checkingConnection ? 'Probando...' : 'Probar conexión'}
+          </button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <StatusMetric
+            icon={Server}
+            label="Backend"
+            value={systemStatus?.backend.status || 'Activo'}
+            detail={systemStatus?.backend.database ? `BD ${systemStatus.backend.database}` : 'API local'}
+            tone="green"
+          />
+          <StatusMetric
+            icon={Cpu}
+            label="Modo análisis"
+            value={systemStatus?.analysis.mode || model?.mode || 'demo'}
+            detail={systemStatus?.analysis.fallbackToDemo ? 'Fallback demo activo' : 'Sin fallback demo'}
+            tone="blue"
+          />
+          <StatusMetric
+            icon={HardDrive}
+            label="Almacenamiento"
+            value={systemStatus?.storage.driver || 'local'}
+            detail={
+              systemStatus?.storage.driver === 'r2'
+                ? systemStatus.storage.r2Configured
+                  ? 'R2 configurado'
+                  : 'R2 incompleto'
+                : 'Servidor local'
+            }
+            tone="yellow"
+          />
+          <StatusMetric
+            icon={Globe2}
+            label="URL pública"
+            value={systemStatus?.exposure.publicUrl || 'No definida'}
+            detail={systemStatus?.exposure.eventAccessRequired ? 'Código de evento activo' : 'Acceso libre'}
+            tone="green"
+          />
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-4">
+          <StatusMetric
+            icon={Database}
+            label="Casos hoy"
+            value={String(systemStatus?.metrics.casesToday ?? 0)}
+            detail={`${systemStatus?.metrics.totalCases ?? 0} casos totales`}
+            tone="blue"
+          />
+          <StatusMetric
+            icon={Wifi}
+            label="Análisis hoy"
+            value={`${systemStatus?.metrics.analysesToday ?? 0}/${systemStatus?.metrics.maxAnalysesPerDay ?? 0}`}
+            detail={`${systemStatus?.metrics.analysesThisHour ?? 0}/${systemStatus?.metrics.maxAnalysesPerHour ?? 0} esta hora`}
+            tone="green"
+          />
+          <StatusMetric
+            icon={ShieldCheck}
+            label="Subida máxima"
+            value={`${systemStatus?.limits.maxUploadMb ?? 8} MB`}
+            detail={`API ${systemStatus?.limits.globalRequests ?? 300} req/ventana`}
+            tone="yellow"
+          />
+          <StatusMetric
+            icon={AlertTriangle}
+            label="Último error"
+            value={systemStatus?.lastError ? `${systemStatus.lastError.statusCode}` : 'Sin errores'}
+            detail={
+              systemStatus?.lastError
+                ? `${systemStatus.lastError.message} · ${formatStatusDate(systemStatus.lastError.occurredAt)}`
+                : 'No se han registrado errores'
+            }
+            tone={systemStatus?.lastError ? 'red' : 'green'}
+          />
+        </div>
+
+        {systemStatus?.checkedAt && (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Última verificación: {formatStatusDate(systemStatus.checkedAt)}
+          </p>
+        )}
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <section className="rounded-lg border border-border bg-card p-5">
@@ -268,5 +405,48 @@ function ModelMetric({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-sm font-semibold">{value}</p>
     </div>
+  );
+}
+
+function formatStatusDate(value: string) {
+  return new Intl.DateTimeFormat('es-CO', {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(value));
+}
+
+function StatusMetric({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  tone
+}: {
+  icon: typeof Server;
+  label: string;
+  value: string;
+  detail: string;
+  tone: 'green' | 'blue' | 'yellow' | 'red';
+}) {
+  const tones = {
+    green: 'bg-green-50 text-green-700',
+    blue: 'bg-blue-50 text-blue-700',
+    yellow: 'bg-yellow-50 text-yellow-700',
+    red: 'bg-red-50 text-red-700'
+  };
+
+  return (
+    <article className="rounded-lg border border-border bg-muted/35 p-4">
+      <div className="mb-3 flex items-center gap-3">
+        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${tones[tone]}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      </div>
+      <p className="truncate text-lg font-semibold" title={value}>{value}</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p>
+    </article>
   );
 }

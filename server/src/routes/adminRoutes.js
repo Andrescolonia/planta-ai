@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { all, get, run } from '../database/connection.js';
 import { env } from '../config/env.js';
+import { getAnalysisQuotaStats } from '../middleware/analysisQuota.js';
 import {
   ADMIN_ASSIGNABLE_ROLES,
   ensurePasswordIsValid,
@@ -9,6 +10,8 @@ import {
   normalizeRole,
   normalizeUsername
 } from '../services/authService.js';
+import { eventAccessRequired } from '../services/eventAccessService.js';
+import { getOperationalStatus } from '../services/operationalStatus.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { formatRecommendation, formatUser } from '../utils/formatters.js';
 import { badRequest, notFound } from '../utils/httpError.js';
@@ -16,6 +19,61 @@ import { badRequest, notFound } from '../utils/httpError.js';
 export const adminRouter = Router();
 
 const assignableRoles = new Set(ADMIN_ASSIGNABLE_ROLES);
+
+adminRouter.get(
+  '/status',
+  asyncHandler(async (_req, res) => {
+    const databaseProbe = await get('SELECT 1 AS ok');
+    const casesToday = await get(
+      "SELECT COUNT(*) AS total FROM cases WHERE date(created_at) = date('now', 'localtime')"
+    );
+    const totalCases = await get('SELECT COUNT(*) AS total FROM cases');
+    const quota = getAnalysisQuotaStats();
+    const runtime = getOperationalStatus();
+
+    res.json({
+      checkedAt: new Date().toISOString(),
+      backend: {
+        status: 'activo',
+        database: databaseProbe?.ok === 1 ? 'activa' : 'revision requerida',
+        startedAt: runtime.startedAt,
+        uptimeSeconds: runtime.uptimeSeconds
+      },
+      analysis: {
+        mode: env.analysisMode,
+        model: env.analysisMode === 'openai' ? env.openaiModel : '0.1.0-demo',
+        openaiConfigured: Boolean(env.openaiApiKey),
+        fallbackToDemo: env.openaiFallbackToDemo
+      },
+      storage: {
+        driver: env.storageDriver,
+        r2Configured: Boolean(env.r2Bucket && env.r2AccessKeyId && env.r2SecretAccessKey),
+        fallbackToLocal: env.r2FallbackToLocal
+      },
+      exposure: {
+        publicUrl: env.publicAppUrl || env.clientOrigin || '',
+        clientOrigin: env.clientOrigin,
+        eventAccessRequired: eventAccessRequired(),
+        trustProxy: env.trustProxy
+      },
+      metrics: {
+        casesToday: Number(casesToday?.total || 0),
+        totalCases: Number(totalCases?.total || 0),
+        analysesThisHour: quota.hourCount,
+        analysesToday: quota.dayCount,
+        maxAnalysesPerHour: env.maxAnalysesPerHour,
+        maxAnalysesPerDay: env.maxAnalysesPerDay
+      },
+      limits: {
+        maxUploadMb: env.maxUploadMb,
+        globalRequests: env.rateLimitMax,
+        authRequests: env.authRateLimitMax,
+        analysisRequests: env.analysisRateLimitMax
+      },
+      lastError: runtime.lastError
+    });
+  })
+);
 
 adminRouter.get(
   '/users',
