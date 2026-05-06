@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import { all, get } from '../database/connection.js';
+import { analysisQuota } from '../middleware/analysisQuota.js';
+import { analysisRateLimit } from '../middleware/rateLimit.js';
 import { imageUpload } from '../middleware/upload.js';
 import { analysisService } from '../services/analysisService.js';
 import { storeUploadedImage } from '../services/storageService.js';
@@ -23,6 +25,8 @@ async function removeUploadedFile(file) {
 
 analysisRouter.post(
   '/analyze',
+  analysisRateLimit,
+  analysisQuota,
   imageUpload.single('image'),
   asyncHandler(async (req, res) => {
     if (!req.file) {

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { get, run } from '../database/connection.js';
+import { authRateLimit } from '../middleware/rateLimit.js';
 import {
   createGuestUsername,
   createSession,
@@ -41,6 +42,7 @@ async function findUserByIdentifier(identifier) {
 
 authRouter.post(
   '/login',
+  authRateLimit,
   asyncHandler(async (req, res) => {
     const identifier = req.body.identifier ?? req.body.username ?? req.body.email;
     const { password } = req.body;
@@ -117,6 +119,7 @@ authRouter.post(
 
 authRouter.post(
   '/guest',
+  authRateLimit,
   asyncHandler(async (req, res) => {
     const guestNameValidation = validatePersonName(req.body.name, { required: false });
     const username = createGuestUsername();

@@ -3,18 +3,26 @@ import type {
   CaseItem,
   DashboardData,
   DemoUser,
+  EventAccessStatus,
   LoginResponse,
   ModelInfo,
   Recommendation,
   ReportData,
+  SystemStatus,
   ZoneItem
 } from '../types';
 
 function getDefaultApiUrl() {
   const protocol = window.location.protocol || 'http:';
   const hostname = window.location.hostname || 'localhost';
+  const port = window.location.port;
+  const frontendOnlyPorts = new Set(['5173', '5174', '4173']);
 
-  return `${protocol}//${hostname}:4000/api`;
+  if (frontendOnlyPorts.has(port)) {
+    return `${protocol}//${hostname}:4000/api`;
+  }
+
+  return `${window.location.origin}/api`;
 }
 
 function normalizeApiUrl(value: string) {
@@ -40,6 +48,20 @@ function resolveApiUrl() {
 
 const API_URL = resolveApiUrl();
 const API_ROOT = API_URL.replace(/\/api\/?$/, '');
+const EVENT_ACCESS_TOKEN_KEY = 'planta-event-access-token';
+
+function getEventAccessToken() {
+  return localStorage.getItem(EVENT_ACCESS_TOKEN_KEY);
+}
+
+function setEventAccessToken(token?: string | null) {
+  if (token) {
+    localStorage.setItem(EVENT_ACCESS_TOKEN_KEY, token);
+    return;
+  }
+
+  localStorage.removeItem(EVENT_ACCESS_TOKEN_KEY);
+}
 
 async function parseResponse(response: Response) {
   const contentType = response.headers.get('content-type') || '';
@@ -52,10 +74,12 @@ async function parseResponse(response: Response) {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const eventAccessToken = getEventAccessToken();
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
       ...(init?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(eventAccessToken ? { 'X-Event-Access-Token': eventAccessToken } : {}),
       ...init?.headers
     }
   });
@@ -66,6 +90,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       typeof payload === 'object' && payload && 'message' in payload
         ? String((payload as { message: unknown }).message)
         : 'No fue posible completar la solicitud.';
+    if (response.status === 403) {
+      setEventAccessToken(null);
+    }
     throw new Error(message);
   }
 
@@ -74,6 +101,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   apiUrl: API_URL,
+  getEventAccessToken,
+  setEventAccessToken,
 
   imageUrl(path?: string | null) {
     if (!path) {
@@ -92,7 +121,21 @@ export const api = {
   },
 
   health() {
-    return request<{ status: string; service: string; mode: string }>('/health');
+    return request<{ status: string; service: string; mode: string; eventAccessRequired?: boolean }>('/health');
+  },
+
+  accessStatus() {
+    return request<EventAccessStatus>('/access/status');
+  },
+
+  async verifyEventAccess(code: string) {
+    const response = await request<EventAccessStatus>('/access/verify', {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    });
+
+    setEventAccessToken(response.token);
+    return response;
   },
 
   login(identifier: string, password: string) {
@@ -160,6 +203,10 @@ export const api = {
 
   adminUsers() {
     return request<{ users: DemoUser[] }>('/admin/users');
+  },
+
+  adminStatus() {
+    return request<SystemStatus>('/admin/status');
   },
 
   createUser(payload: {

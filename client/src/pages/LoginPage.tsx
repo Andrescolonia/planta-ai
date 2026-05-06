@@ -3,11 +3,12 @@ import {
   ArrowRight,
   LockKeyhole,
   Mail,
+  ShieldCheck,
   UserPlus,
   UserRound,
   type LucideIcon
 } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import heroImage from '../assets/planta-botanical-hero.svg';
 import { api } from '../services/api';
 import type { DemoUser, Session } from '../types';
@@ -52,8 +53,49 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
   const [registerPassword, setRegisterPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [guestName, setGuestName] = useState('');
+  const [eventCode, setEventCode] = useState('');
+  const [accessRequired, setAccessRequired] = useState(false);
+  const [accessVerified, setAccessVerified] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [error, setError] = useState('');
   const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
+
+  useEffect(() => {
+    api
+      .accessStatus()
+      .then((status) => {
+        setAccessRequired(status.required);
+        setAccessVerified(status.verified);
+      })
+      .catch(() => {
+        setAccessRequired(false);
+        setAccessVerified(true);
+      })
+      .finally(() => setCheckingAccess(false));
+  }, []);
+
+  async function handleEventAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+
+    if (!eventCode.trim()) {
+      setError('Ingresa el código de acceso del evento.');
+      return;
+    }
+
+    setLoadingAction('login');
+
+    try {
+      const response = await api.verifyEventAccess(eventCode);
+      setAccessRequired(response.required);
+      setAccessVerified(response.verified);
+      setEventCode('');
+    } catch (accessError) {
+      setError(accessError instanceof Error ? accessError.message : 'No fue posible validar el código.');
+    } finally {
+      setLoadingAction(null);
+    }
+  }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -118,6 +160,7 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
   }
 
   const loading = loadingAction !== null;
+  const showAccessGate = !checkingAccess && accessRequired && !accessVerified;
 
   return (
     <main className="grid min-h-screen bg-background lg:grid-cols-[1.02fr_0.98fr]">
@@ -158,6 +201,66 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
             </p>
           </div>
 
+          {checkingAccess && (
+            <section className="rounded-lg border border-border bg-card p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Validando acceso al evento</h3>
+                  <p className="text-xs text-muted-foreground">Preparando la entrada segura.</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {showAccessGate && (
+            <form onSubmit={handleEventAccess} className="rounded-lg border border-border bg-card p-5">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Código de acceso del evento</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Este paso protege el consumo de análisis e imágenes durante la exposición.
+                  </p>
+                </div>
+              </div>
+
+              <label className="mb-2 block text-sm font-medium text-foreground">Código</label>
+              <div className="relative mb-4">
+                <LockKeyhole className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="password"
+                  value={eventCode}
+                  onChange={(event) => setEventCode(event.target.value)}
+                  disabled={loading}
+                  autoFocus
+                  className="w-full rounded-lg border border-border bg-input-background py-3 pl-10 pr-3 outline-none transition focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {error && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-3 font-medium text-secondary-foreground transition hover:bg-secondary/90 disabled:opacity-60"
+              >
+                {loading ? 'Validando...' : 'Continuar'}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </form>
+          )}
+
+          {!checkingAccess && !showAccessGate && (
+          <>
           <section className="mb-5 rounded-lg border border-green-200 bg-green-50 p-4">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
@@ -325,6 +428,8 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
             </form>
           )}
 
+          </>
+          )}
         </div>
       </section>
     </main>

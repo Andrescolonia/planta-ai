@@ -32,6 +32,13 @@ export interface LoginResponse {
   session: Session;
 }
 
+export interface EventAccessStatus {
+  required: boolean;
+  verified: boolean;
+  token?: string | null;
+  expiresIn?: string;
+}
+
 export interface CaseItem {
   id: number;
   createdAt: string;
@@ -170,4 +177,50 @@ export interface ModelInfo {
     description: string;
     futureReplacement: string;
   };
+}
+
+export interface SystemStatus {
+  checkedAt: string;
+  backend: {
+    status: string;
+    database: string;
+    startedAt: string;
+    uptimeSeconds: number;
+  };
+  analysis: {
+    mode: string;
+    model: string;
+    openaiConfigured: boolean;
+    fallbackToDemo: boolean;
+  };
+  storage: {
+    driver: string;
+    r2Configured: boolean;
+    fallbackToLocal: boolean;
+  };
+  exposure: {
+    publicUrl: string;
+    clientOrigin: string;
+    eventAccessRequired: boolean;
+    trustProxy: boolean | number;
+  };
+  metrics: {
+    casesToday: number;
+    totalCases: number;
+    analysesThisHour: number;
+    analysesToday: number;
+    maxAnalysesPerHour: number;
+    maxAnalysesPerDay: number;
+  };
+  limits: {
+    maxUploadMb: number;
+    globalRequests: number;
+    authRequests: number;
+    analysisRequests: number;
+  };
+  lastError: {
+    message: string;
+    statusCode: number;
+    occurredAt: string;
+  } | null;
 }

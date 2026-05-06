@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { ReportsView } from './pages/ReportsView';
 import { ZonesView } from './pages/ZonesView';
 import { AppShell, type ViewKey } from './layouts/AppShell';
+import { api } from './services/api';
 import type { DemoUser, Session } from './types';
 
 const SESSION_KEY = 'planta-local-session';
@@ -53,14 +54,34 @@ export function App() {
   const [user, setUser] = useState<DemoUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [currentView, setCurrentView] = useState<ViewKey>('dashboard');
+  const [accessChecked, setAccessChecked] = useState(false);
 
   useEffect(() => {
-    const stored = readStoredSession();
-    if (stored) {
-      setUser(stored.user);
-      setSession(stored.session);
-      setCurrentView(readStoredView(stored.user));
-    }
+    api
+      .accessStatus()
+      .then((status) => {
+        if (status.required && !status.verified) {
+          localStorage.removeItem(SESSION_KEY);
+          localStorage.removeItem(VIEW_KEY);
+          return;
+        }
+
+        const stored = readStoredSession();
+        if (stored) {
+          setUser(stored.user);
+          setSession(stored.session);
+          setCurrentView(readStoredView(stored.user));
+        }
+      })
+      .catch(() => {
+        const stored = readStoredSession();
+        if (stored) {
+          setUser(stored.user);
+          setSession(stored.session);
+          setCurrentView(readStoredView(stored.user));
+        }
+      })
+      .finally(() => setAccessChecked(true));
   }, []);
 
   useEffect(() => {
@@ -103,6 +124,10 @@ export function App() {
     setSession(null);
     setCurrentView('dashboard');
     setEntry('landing');
+  }
+
+  if (!accessChecked) {
+    return <LandingPage onEnter={() => setEntry('login')} />;
   }
 
   if (!user || !session) {
