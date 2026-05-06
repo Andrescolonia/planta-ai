@@ -128,6 +128,12 @@ El frontend detecta el host usado y llama automaticamente al backend en:
 http://IP_DEL_PC:4000/api
 ```
 
+Si estas usando `npm run start:home`, abre directamente:
+
+```text
+http://IP_DEL_PC:4000
+```
+
 Si Windows pregunta por permisos de red para Node.js, permitir acceso en redes
 privadas.
 
@@ -145,10 +151,28 @@ FRONTEND_PORT=5173
 FRONTEND_PREVIEW_PORT=4173
 
 VITE_API_URL=auto
+CLIENT_DIST_DIR=client/dist
 
 STORAGE_DRIVER=local
 UPLOAD_DIR=./uploads
 MAX_UPLOAD_MB=8
+
+EVENT_ACCESS_CODE=PLANTA2026
+EVENT_ACCESS_TTL_HOURS=12
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=300
+AUTH_RATE_LIMIT_WINDOW_MS=600000
+AUTH_RATE_LIMIT_MAX=20
+ANALYSIS_RATE_LIMIT_WINDOW_MS=3600000
+ANALYSIS_RATE_LIMIT_MAX=60
+MAX_ANALYSES_PER_HOUR=60
+MAX_ANALYSES_PER_DAY=300
+OPENAI_FALLBACK_TO_DEMO=true
+R2_FALLBACK_TO_LOCAL=true
+TRUST_PROXY=true
+LOG_DIR=./logs
+BACKUP_DIR=./backups
+BACKUP_RETENTION_COUNT=25
 ```
 
 Si cambias el puerto del backend, por ejemplo:
@@ -217,6 +241,38 @@ Construir frontend:
 npm run build
 ```
 
+## Modo Casa / Produccion Local
+
+Para exponer la plataforma desde casa conviene usar un solo puerto. Este comando
+compila React y luego inicia Express sirviendo el frontend compilado y la API:
+
+```powershell
+npm run start:home
+```
+
+Antes de iniciar, este comando ejecuta automaticamente `npm run backup:db` para
+crear una copia de seguridad de SQLite en `backups/`.
+
+Abrir en el PC anfitrion:
+
+```text
+http://localhost:4000
+```
+
+En este modo:
+
+- React se sirve desde `client/dist`
+- La API queda en `/api`
+- Las imagenes locales quedan en `/uploads`
+- Cloudflare Tunnel solo necesita apuntar a `http://localhost:4000`
+- Los logs del backend quedan en `logs/server.log` y `logs/error.log`
+
+Si ya ejecutaste `npm run build` y solo quieres levantar el servidor:
+
+```powershell
+npm run start:home:no-build
+```
+
 Servir frontend compilado con Vite Preview:
 
 ```powershell
@@ -228,6 +284,159 @@ Iniciar backend en modo estable:
 ```powershell
 npm run start:backend
 ```
+
+`npm run start:frontend` es util para revisar el build con Vite Preview, pero
+para publicar la demo usa `npm run start:home`.
+
+## Cloudflare Tunnel
+
+Para publicarlo desde casa sin abrir puertos del router, usa Cloudflare Tunnel
+apuntando a:
+
+```text
+http://localhost:4000
+```
+
+Guia completa:
+
+```text
+docs/cloudflare-tunnel.md
+```
+
+Comandos de apoyo:
+
+```powershell
+npm run home:check
+npm run tunnel:check
+npm run tunnel:run -- -TunnelName planta-ai
+npm run tunnel:quick
+```
+
+`npm run tunnel:quick` es solo un modo de emergencia: genera una URL temporal de
+Cloudflare Quick Tunnel apuntando a `http://localhost:4000` si el tunel nombrado
+falla.
+
+## Seguridad Basica Para Exposicion
+
+Antes de publicar la URL del evento, configura en `.env`:
+
+```env
+EVENT_ACCESS_CODE=PLANTA2026
+EVENT_ACCESS_TTL_HOURS=12
+OPENAI_FALLBACK_TO_DEMO=true
+R2_FALLBACK_TO_LOCAL=true
+TRUST_PROXY=true
+
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=300
+
+AUTH_RATE_LIMIT_WINDOW_MS=600000
+AUTH_RATE_LIMIT_MAX=20
+
+ANALYSIS_RATE_LIMIT_WINDOW_MS=3600000
+ANALYSIS_RATE_LIMIT_MAX=60
+MAX_ANALYSES_PER_HOUR=60
+MAX_ANALYSES_PER_DAY=300
+```
+
+Con `EVENT_ACCESS_CODE` activo, la app pide el codigo antes de mostrar login,
+registro o ingreso invitado. El backend tambien exige un token temporal para
+usar la API, por lo que no basta con saltarse la pantalla desde el navegador.
+
+Los limites son en memoria y estan pensados para una exposicion corriendo desde
+un solo PC. Si reinicias el servidor, los contadores vuelven a cero.
+
+Para desactivar la puerta de evento durante desarrollo, deja vacio:
+
+```env
+EVENT_ACCESS_CODE=
+```
+
+## Panel De Estado Para Exposicion
+
+El panel administrador incluye una seccion `Estado de exposicion` con:
+
+- Estado del backend y base SQLite.
+- Modo de analisis actual.
+- Almacenamiento activo: local o Cloudflare R2.
+- Casos guardados hoy.
+- Analisis ejecutados en la sesion actual.
+- Limites configurados para API, auth y analisis.
+- Ultimo error registrado.
+- URL publica configurada.
+- Boton `Probar conexion`.
+
+El endpoint usado por esta vista es:
+
+```http
+GET /api/admin/status
+```
+
+Si `EVENT_ACCESS_CODE` esta activo, el endpoint requiere el token temporal que
+se obtiene al validar el codigo de evento desde la pantalla de ingreso.
+
+## Respaldo Y Recuperacion
+
+La base principal vive en:
+
+```text
+server/data/planta.sqlite
+```
+
+Crear respaldo manual:
+
+```powershell
+npm run backup:db
+```
+
+Los respaldos se guardan en:
+
+```text
+backups/planta-YYYYMMDD-HHMMSS.sqlite
+```
+
+El arranque de exposicion crea un respaldo automatico antes de levantar el
+servidor:
+
+```powershell
+npm run start:home
+```
+
+Restaurar una copia requiere detener el backend primero. Luego ejecutar:
+
+```powershell
+npm run restore:db -- backups/planta-YYYYMMDD-HHMMSS.sqlite
+```
+
+El script crea antes una copia preventiva llamada
+`backups/pre-restore-YYYYMMDD-HHMMSS.sqlite` y despues reemplaza
+`server/data/planta.sqlite`.
+
+Logs locales:
+
+```text
+logs/server.log  -> actividad general del backend
+logs/error.log   -> advertencias y errores
+```
+
+Variables opcionales:
+
+```env
+LOG_DIR=./logs
+BACKUP_DIR=./backups
+BACKUP_RETENTION_COUNT=25
+```
+
+## Modo Emergencia Para El Evento
+
+- Si OpenAI falla, mantener `OPENAI_FALLBACK_TO_DEMO=true`.
+- Si Cloudflare R2 falla, mantener `R2_FALLBACK_TO_LOCAL=true`.
+- Si el tunel nombrado falla, usar `npm run tunnel:quick`.
+- Si internet de casa falla, ejecutar `npm run start:home` en la laptop del
+  evento y abrir `http://localhost:4000`.
+- Llevar una copia del proyecto y de la carpeta `backups/` en USB.
+- Antes de salir al evento, correr `npm run build`, `npm run backup:db` y
+  verificar que `http://localhost:4000/api/health` responda.
 
 ## Acceso Local
 
