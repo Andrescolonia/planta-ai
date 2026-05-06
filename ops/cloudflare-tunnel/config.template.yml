@@ -1,0 +1,12 @@
+# Copia este archivo a:
+# C:\Users\<TU_USUARIO>\.cloudflared\config.yml
+#
+# No guardes credenciales reales dentro del repositorio.
+
+tunnel: <TUNNEL_UUID>
+credentials-file: C:\Users\<TU_USUARIO>\.cloudflared\<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: planta.tu-dominio.com
+    service: http://localhost:4000
+  - service: http_status:404
