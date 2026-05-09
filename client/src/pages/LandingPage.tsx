@@ -1,4 +1,4 @@
-import { ArrowRight, BarChart3, Droplets, Leaf, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BarChart3, Leaf, ShieldCheck, Sparkles } from 'lucide-react';
 import heroImage from '../assets/planta-botanical-hero.svg';
 
 interface LandingPageProps {
@@ -22,8 +22,8 @@ export function LandingPage({ onEnter }: LandingPageProps) {
               P.L.A.N.T.A.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/82 md:text-xl">
-              Plataforma local para diagnóstico visual de plantas, seguimiento operativo y apoyo a
-              la gestión hídrica de zonas verdes universitarias.
+              Plataforma para diagnóstico visual de plantas, seguimiento operativo y apoyo a
+              decisiones de cuidado vegetal en zonas verdes universitarias.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <button
@@ -34,7 +34,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
                 <ArrowRight className="h-5 w-5" />
               </button>
               <span className="rounded-lg border border-white/20 px-4 py-3 text-sm text-white/78">
-                MVP local sin nube obligatoria
+                MVP funcional
               </span>
             </div>
           </div>
@@ -51,10 +51,10 @@ export function LandingPage({ onEnter }: LandingPageProps) {
           </p>
         </article>
         <article className="rounded-lg border border-border bg-card p-5">
-          <Droplets className="mb-4 h-8 w-8 text-secondary" />
-          <h2 className="text-lg font-semibold">Gestión hídrica eficiente</h2>
+          <Sparkles className="mb-4 h-8 w-8 text-secondary" />
+          <h2 className="text-lg font-semibold">Cuidado vegetal integral</h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Prioriza alertas de riego y seguimiento preventivo sin depender de sensores ni
+            Prioriza alertas de sanidad, riego, poda y seguimiento preventivo sin depender de sensores ni
             automatización de hardware.
           </p>
         </article>

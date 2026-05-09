@@ -155,7 +155,7 @@ caseRouter.post(
     ]);
 
     if (!recommendation) {
-      throw badRequest('El estado diagnostico no existe en el catalogo demo.');
+      throw badRequest('El estado diagnostico no existe en el catalogo configurado.');
     }
 
     const confidence = Number(result.confidence || result.confianza || 80);

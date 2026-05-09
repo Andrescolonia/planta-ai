@@ -2,21 +2,21 @@ export const initialUsers = [
   {
     name: 'Laura Mendez',
     username: 'operador',
-    email: 'operador@planta.local',
+    email: 'operador@planta.edu.co',
     password: 'planta2026',
     role: 'usuario'
   },
   {
     name: 'Carlos Rivas',
     username: 'supervisor',
-    email: 'supervisor@planta.local',
+    email: 'supervisor@planta.edu.co',
     password: 'planta2026',
     role: 'supervisor'
   },
   {
     name: 'Andrea Salazar',
     username: 'admin',
-    email: 'admin@planta.local',
+    email: 'admin@planta.edu.co',
     password: 'planta2026',
     role: 'administrador'
   }
@@ -61,9 +61,9 @@ export const demoRecommendations = [
     risk_level: 'bajo',
     priority: 'baja',
     irrigation_recommendation:
-      'Mantener riego programado y verificar humedad del suelo durante la ronda regular.',
+      'Mantener el plan de cuidado actual: riego programado, limpieza ligera de hojas secas, control visual semanal y verificacion de sustrato sin aplicar tratamientos correctivos.',
     automatic_observation:
-      'La planta presenta coloracion uniforme, follaje estable y ausencia de signos visibles de deterioro.',
+      'La planta presenta coloracion uniforme, follaje estable y ausencia de signos visibles de deterioro relevante.',
     color: '#237a57',
     sort_order: 1
   },
@@ -72,9 +72,9 @@ export const demoRecommendations = [
     risk_level: 'medio',
     priority: 'media',
     irrigation_recommendation:
-      'Ajustar riego de forma moderada y programar una nueva revision en 48 horas.',
+      'Aplicar mantenimiento preventivo: retirar hojas con dano leve, limpiar residuos del sustrato, revisar envés de hojas y tallos, mejorar ventilacion y ajustar riego solo si el sustrato esta seco.',
     automatic_observation:
-      'Se observan variaciones leves en tono o densidad foliar que conviene monitorear.',
+      'Se observan variaciones leves en tono, densidad foliar o textura que requieren manejo preventivo antes de que el dano avance.',
     color: '#b9975b',
     sort_order: 2
   },
@@ -83,9 +83,9 @@ export const demoRecommendations = [
     risk_level: 'alto',
     priority: 'alta',
     irrigation_recommendation:
-      'Aplicar riego correctivo controlado y revisar drenaje, compactacion y exposicion solar.',
+      'Corregir manejo hidrico y de sitio: hidratar de forma gradual, revisar drenaje y compactacion, proteger de sol fuerte temporalmente, retirar tejido seco y confirmar que el agua no quede empozada.',
     automatic_observation:
-      'El follaje sugiere perdida de turgencia, resequedad o senales compatibles con deficit hidrico.',
+      'El follaje sugiere perdida de turgencia, resequedad, amarillamiento o senales compatibles con deficit o manejo irregular de agua.',
     color: '#c05621',
     sort_order: 3
   },
@@ -94,9 +94,9 @@ export const demoRecommendations = [
     risk_level: 'medio',
     priority: 'media',
     irrigation_recommendation:
-      'Realizar inspeccion visual presencial antes de modificar el esquema de riego.',
+      'Ejecutar manejo fitosanitario inicial: retirar hojas muy afectadas, limpiar restos vegetales, aislar la planta si esta en matera, revisar envés por plagas y aplicar el tratamiento institucional autorizado segun hallazgos visibles.',
     automatic_observation:
-      'La imagen presenta indicadores ambiguos o condiciones de captura que requieren validacion humana.',
+      'La imagen presenta dano foliar, manchas, necrosis, perforaciones o deterioro visible que requiere accion de cuidado vegetal mas alla del riego.',
     color: '#2f6690',
     sort_order: 4
   }

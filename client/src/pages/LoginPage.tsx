@@ -175,7 +175,7 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
           </p>
           <h1 className="mt-3 text-4xl font-semibold">P.L.A.N.T.A.</h1>
           <p className="mt-3 max-w-md text-sm leading-6 text-white/76">
-            Acceso local para visitantes, personal operativo y administradores de la exposición.
+            Acceso para visitantes, personal operativo y administradores de la exposición.
           </p>
         </div>
       </section>
@@ -192,11 +192,11 @@ export function LoginPage({ onBack, onLogin }: LoginPageProps) {
 
           <div className="mb-6">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-secondary">
-              Acceso local al evento
+              MVP funcional del evento
             </p>
             <h2 className="mt-2 text-3xl font-semibold text-foreground">Entrar a P.L.A.N.T.A.</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Ingresa con una cuenta local, crea un usuario nuevo o continúa como invitado para probar
+              Ingresa con una cuenta, crea un usuario nuevo o continúa como invitado para probar
               el flujo completo desde cualquier dispositivo conectado a la red.
             </p>
           </div>

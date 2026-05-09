@@ -1,0 +1,18 @@
+{
+  "name": "P.L.A.N.T.A.",
+  "short_name": "P.L.A.N.T.A.",
+  "description": "MVP funcional para diagnostico visual de plantas y gestion de zonas verdes universitarias.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9f8",
+  "theme_color": "#0a7f63",
+  "lang": "es-CO",
+  "icons": [
+    {
+      "src": "/planta-favicon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

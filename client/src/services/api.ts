@@ -175,6 +175,10 @@ export const api = {
     return request<{ zones: ZoneItem[] }>('/zones');
   },
 
+  zoneDetail(id: number) {
+    return request<{ zone: ZoneItem; cases: CaseItem[] }>(`/zones/${id}`);
+  },
+
   cases(query = '') {
     return request<{ cases: CaseItem[] }>(`/cases${query}`);
   },

@@ -10,6 +10,7 @@ import {
 } from '../services/eventAccessService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { HttpError, badRequest } from '../utils/httpError.js';
+import { publicAnalysisMode } from '../utils/publicAiLabels.js';
 import { adminRouter } from './adminRoutes.js';
 import { analysisRouter } from './analysisRoutes.js';
 import { authRouter } from './authRoutes.js';
@@ -26,7 +27,7 @@ apiRouter.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     service: 'P.L.A.N.T.A. API',
-    mode: env.analysisMode,
+    mode: publicAnalysisMode(env.analysisMode),
     eventAccessRequired: eventAccessRequired()
   });
 });

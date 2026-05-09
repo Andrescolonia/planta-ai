@@ -81,7 +81,7 @@ export function ReportsView() {
           <ReportMetric label="Diagnósticos totales" value={report.summary.totalCases} />
           <ReportMetric label="Saludables" value={report.summary.healthy} />
           <ReportMetric label="Atención preventiva" value={report.summary.preventive} />
-          <ReportMetric label="Alertas de riego" value={report.summary.alerts} />
+          <ReportMetric label="Alertas de cuidado" value={report.summary.alerts} />
         </div>
       </section>
 
@@ -128,7 +128,7 @@ export function ReportsView() {
           <EmptyState
             icon={Inbox}
             title="Sin alertas por zona"
-            description="Las alertas aparecerán cuando el modo demo guarde casos con riesgo alto."
+            description="Las alertas aparecerán cuando el motor guarde casos con riesgo alto."
           />
         )}
       </section>

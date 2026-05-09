@@ -56,6 +56,7 @@ export interface CaseItem {
   resultado?: string;
   confidence: number;
   riskLevel: string;
+  careRecommendation?: string;
   irrigationRecommendation: string;
   observations: string;
   priority: string;
@@ -86,6 +87,14 @@ export interface ZoneItem {
   casesCount: number;
   recentAlerts: number;
   lastCaseAt?: string | null;
+  recentAlert?: {
+    id: number;
+    createdAt?: string;
+    created_at?: string;
+    diagnosticState?: string;
+    diagnostic_state?: string;
+    priority?: string;
+  } | null;
 }
 
 export interface AnalysisStage {
@@ -97,13 +106,19 @@ export interface AnalysisStage {
 export interface AnalysisResult {
   mode: string;
   isPlant?: boolean;
+  isRealPlant?: boolean;
   rejectionReason?: string;
+  authenticityAssessment?: string;
+  artificialIndicators?: string[];
+  visualQuality?: string;
+  diagnosticSummary?: string;
   visibleIndicators?: string[];
   suggestedCommonName?: string;
   diagnosticState: string;
   confidence: number;
   riskLevel: string;
   priority: string;
+  careRecommendation?: string;
   irrigationRecommendation: string;
   observations: string;
   color: string;
@@ -163,6 +178,7 @@ export interface Recommendation {
   diagnosticState: string;
   riskLevel: string;
   priority: string;
+  careRecommendation?: string;
   irrigationRecommendation: string;
   automaticObservation: string;
   color: string;
@@ -190,7 +206,7 @@ export interface SystemStatus {
   analysis: {
     mode: string;
     model: string;
-    openaiConfigured: boolean;
+    engineConfigured?: boolean;
     fallbackToDemo: boolean;
   };
   storage: {

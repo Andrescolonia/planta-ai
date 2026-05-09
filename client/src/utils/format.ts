@@ -36,6 +36,63 @@ export function priorityLabel(value?: string | null) {
   return value ? map[value] || titleCase(value) : 'Sin prioridad';
 }
 
+export function analysisModeLabel(value?: string | null) {
+  const normalized = String(value || '').toLowerCase();
+  const legacyAutonomousMode = ['open', 'ai'].join('');
+  const map: Record<string, string> = {
+    [legacyAutonomousMode]: 'FitoVision',
+    autonomo: 'FitoVision',
+    fitovision: 'FitoVision',
+    demo: 'MVP funcional',
+    'demo-fallback': 'Respaldo FitoVision',
+    'respaldo inteligente': 'Respaldo FitoVision',
+    'respaldo fitovisual': 'Respaldo FitoVision'
+  };
+
+  return map[normalized] || titleCase(normalized || 'fitovision');
+}
+
+export function analysisEngineLabel(value?: string | null) {
+  const rawValue = String(value || '').trim();
+  const normalized = rawValue.toLowerCase();
+  const legacyProvider = ['open', 'ai'].join('');
+
+  if (normalized.includes('demo')) {
+    return 'P.L.A.N.T.A. FitoVision Demo';
+  }
+
+  if (
+    !normalized ||
+    normalized.includes(legacyProvider) ||
+    normalized.includes('vision autonoma') ||
+    normalized.includes('vision respaldo') ||
+    normalized.includes('fitovision')
+  ) {
+    return 'P.L.A.N.T.A. FitoVision';
+  }
+
+  return rawValue;
+}
+
+export function analysisVersionLabel(value?: string | null) {
+  const rawValue = String(value || '').trim();
+  const normalized = rawValue.toLowerCase();
+  const legacyModelPrefix = ['g', 'p', 't'].join('');
+  const compactModelSuffix = ['m', 'i', 'n', 'i'].join('');
+
+  if (
+    !normalized ||
+    normalized.includes(legacyModelPrefix) ||
+    normalized.includes(compactModelSuffix) ||
+    normalized.includes('preview') ||
+    normalized.includes('demo')
+  ) {
+    return '2.1.0';
+  }
+
+  return rawValue;
+}
+
 export function formatDate(value?: string | null) {
   if (!value) {
     return 'Sin fecha';

@@ -2,10 +2,10 @@ import {
   AlertCircle,
   CalendarDays,
   ChevronDown,
-  Droplets,
   Filter,
   ImageOff,
   Inbox,
+  Leaf,
   MapPin,
   Search,
   UserRound,
@@ -16,8 +16,8 @@ import { EmptyState } from '../components/EmptyState';
 import { api } from '../services/api';
 import type { CaseItem, ZoneItem } from '../types';
 import {
+  analysisModeLabel,
   diagnosticLabel,
-  formatDate,
   formatDateTime,
   priorityDotClass,
   priorityLabel,
@@ -186,7 +186,7 @@ export function HistoryView() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px]">
+          <table className="history-table w-full min-w-[920px]">
             <thead className="bg-muted/50">
               <tr>
                 {['ID', 'Fecha', 'Zona / ubicación', 'Resultado', 'Recomendación', 'Prioridad'].map(
@@ -218,25 +218,35 @@ export function HistoryView() {
                       selectedCase?.id === item.id ? 'bg-secondary/10' : ''
                     }`}
                   >
-                    <td className="px-4 py-4 text-sm font-medium">#{item.id}</td>
-                    <td className="px-4 py-4 text-sm text-muted-foreground">{formatDate(item.createdAt)}</td>
-                    <td className="px-4 py-4">
-                      <p className="text-sm font-medium">{item.zoneName}</p>
-                      <p className="text-xs text-muted-foreground">{item.location}</p>
+                    <td className="px-4 py-2 text-sm font-medium">#{item.id}</td>
+                    <td
+                      className="history-table__date px-4 py-2 text-sm text-muted-foreground"
+                      title={formatDateTime(item.createdAt)}
+                    >
+                      {formatHistoryDate(item.createdAt)}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="history-table__zone px-4 py-2">
+                      <p className="text-sm font-medium">{item.zoneName}</p>
+                      <p className="history-table__location text-xs text-muted-foreground">{item.location}</p>
+                    </td>
+                    <td className="px-4 py-2">
                       <span
-                        className={`rounded border px-2 py-1 text-xs font-medium ${statusBadgeClass(
+                        className={`history-status-badge rounded border px-2 py-1 text-xs font-medium ${statusBadgeClass(
                           item.diagnosticState
                         )}`}
                       >
                         {diagnosticLabel(item.diagnosticState)}
                       </span>
                     </td>
-                    <td className="max-w-md px-4 py-4 text-sm text-muted-foreground">
-                      {item.irrigationRecommendation}
+                    <td className="history-recommendation-cell max-w-md px-4 py-2 text-sm text-muted-foreground">
+                      <p
+                        className="history-recommendation-text"
+                        title={item.careRecommendation || item.irrigationRecommendation}
+                      >
+                        {item.careRecommendation || item.irrigationRecommendation}
+                      </p>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
                         <span className={`h-2.5 w-2.5 rounded-full ${priorityDotClass(item.priority)}`} />
                         <span className="text-sm">{priorityLabel(item.priority)}</span>
@@ -263,7 +273,7 @@ export function HistoryView() {
           <span>
             {loading ? 'Cargando historial...' : `Mostrando ${visibleCases.length} de ${cases.length} casos`}
           </span>
-          <span>Fuente: base SQLite local</span>
+          <span>Fuente: base SQLite del sistema</span>
         </div>
       </section>
 
@@ -279,6 +289,24 @@ export function HistoryView() {
       )}
     </div>
   );
+}
+
+function formatHistoryDate(value?: string | null) {
+  if (!value) {
+    return 'Sin fecha';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Sin fecha';
+  }
+
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = months[date.getMonth()];
+  const year = String(date.getFullYear()).slice(-2);
+
+  return `${day} ${month} ${year}`;
 }
 
 function SelectWithIcon({
@@ -327,7 +355,7 @@ function CaseDetailPanel({
 
   return (
     <div className="no-print case-detail-overlay">
-      <section className="case-detail-panel w-full max-w-3xl rounded-lg border border-border bg-card shadow-lg">
+      <section className="case-detail-panel case-detail-panel--wide w-full rounded-lg border border-border bg-card shadow-lg">
         <header className="flex items-start justify-between gap-4 border-b border-border p-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -345,66 +373,78 @@ function CaseDetailPanel({
           </button>
         </header>
 
-        <div className="grid gap-5 p-5 md:grid-cols-2">
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-lg border border-border">
-              {imageUrl && !imageFailed ? (
-                <img
-                  src={imageUrl}
-                  alt={`Imagen del caso ${item.id}`}
-                  onError={onImageError}
-                  className="h-72 w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-72 flex-col items-center justify-center bg-muted/35 p-6 text-center">
-                  <ImageOff className="mb-3 h-10 w-10 text-muted-foreground" />
-                  <p className="text-sm font-medium">Imagen no disponible</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Este caso puede venir de datos sembrados o de una imagen no accesible.
-                  </p>
+        <div className="p-5">
+          <div className="case-detail-layout">
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-lg border border-border">
+                {imageUrl && !imageFailed ? (
+                  <img
+                    src={imageUrl}
+                    alt={`Imagen del caso ${item.id}`}
+                    onError={onImageError}
+                    className="case-detail-image w-full object-cover"
+                  />
+                ) : (
+                  <div className="case-detail-image flex flex-col items-center justify-center bg-muted/35 p-6 text-center">
+                    <ImageOff className="mb-3 h-10 w-10 text-muted-foreground" />
+                    <p className="text-sm font-medium">Imagen no disponible</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Este caso puede venir de datos sembrados o de una imagen no accesible.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg bg-muted/35 p-3">
+                <p className="text-xs text-muted-foreground">Almacenamiento de imagen</p>
+                <p className="mt-1 text-sm font-semibold">{imageStorageLabel(item)}</p>
+              </div>
+
+              {loading && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                  Cargando detalle completo...
+                </div>
+              )}
+
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
                 </div>
               )}
             </div>
 
-            <div className="rounded-lg bg-muted/35 p-3">
-              <p className="text-xs text-muted-foreground">Almacenamiento de imagen</p>
-              <p className="mt-1 text-sm font-semibold">{imageStorageLabel(item)}</p>
+            <div className="space-y-4">
+              <section className="rounded-lg border border-border p-4">
+                <h4 className="mb-3 text-sm font-semibold">Información del caso</h4>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <DetailMetric label="Confianza" value={`${item.confidence.toFixed(1)}%`} />
+                  <DetailMetric label="Riesgo" value={riskLabel(item.riskLevel)} />
+                  <DetailMetric label="Prioridad" value={priorityLabel(item.priority)} />
+                  <DetailMetric label="Tecnología" value={analysisModeLabel(item.analysisMode)} />
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-border p-4">
+                <h4 className="mb-3 text-sm font-semibold">Contexto operativo</h4>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <IconDetail icon={CalendarDays} label="Fecha" value={formatDateTime(item.createdAt)} />
+                  <IconDetail icon={UserRound} label="Registrado por" value={item.createdByName || 'Sin usuario'} />
+                  <IconDetail icon={MapPin} label="Zona" value={item.zoneName} />
+                  <IconDetail icon={AlertCircle} label="Estado" value={diagnosticLabel(item.diagnosticState)} />
+                </div>
+              </section>
             </div>
-
-            {loading && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-                Cargando detalle completo...
-              </div>
-            )}
-
-            {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
-              </div>
-            )}
           </div>
 
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <DetailMetric label="Confianza" value={`${item.confidence.toFixed(1)}%`} />
-              <DetailMetric label="Riesgo" value={riskLabel(item.riskLevel)} />
-              <DetailMetric label="Prioridad" value={priorityLabel(item.priority)} />
-              <DetailMetric label="Modo" value={item.analysisMode || 'demo'} />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <IconDetail icon={CalendarDays} label="Fecha" value={formatDateTime(item.createdAt)} />
-              <IconDetail icon={UserRound} label="Registrado por" value={item.createdByName || 'Sin usuario'} />
-              <IconDetail icon={MapPin} label="Zona" value={item.zoneName} />
-              <IconDetail icon={AlertCircle} label="Estado" value={diagnosticLabel(item.diagnosticState)} />
-            </div>
-
+          <div className="case-detail-support">
             <div className="rounded-lg bg-muted/55 p-4">
               <div className="mb-2 flex items-center gap-2">
-                <Droplets className="h-4 w-4 text-secondary" />
-                <h4 className="text-sm font-semibold">Recomendación de riego</h4>
+                <Leaf className="h-4 w-4 text-secondary" />
+                <h4 className="text-sm font-semibold">Recomendación de cuidado vegetal</h4>
               </div>
-              <p className="text-sm leading-6 text-muted-foreground">{item.irrigationRecommendation}</p>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {item.careRecommendation || item.irrigationRecommendation}
+              </p>
             </div>
 
             <div className="rounded-lg border border-border p-4">
@@ -423,7 +463,7 @@ function imageStorageLabel(item: CaseItem) {
     return 'Cloudflare R2';
   }
 
-  return item.imagePath ? 'Servidor local' : 'No disponible';
+  return item.imagePath ? 'Servidor interno' : 'No disponible';
 }
 
 function DetailMetric({ label, value }: { label: string; value: string }) {

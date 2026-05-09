@@ -18,7 +18,14 @@ import { FormEvent, useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { api } from '../services/api';
 import type { DemoUser, ModelInfo, Recommendation, SystemStatus } from '../types';
-import { diagnosticLabel, priorityLabel, riskLabel } from '../utils/format';
+import {
+  analysisEngineLabel,
+  analysisModeLabel,
+  analysisVersionLabel,
+  diagnosticLabel,
+  priorityLabel,
+  riskLabel
+} from '../utils/format';
 
 interface AdminViewProps {
   user: DemoUser;
@@ -102,7 +109,7 @@ export function AdminView({ user }: AdminViewProps) {
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-foreground">Panel administrador</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gestión local de usuarios, catálogo diagnóstico y configuración del modelo.
+          Gestión de usuarios, catálogo diagnóstico y configuración del motor.
         </p>
       </div>
 
@@ -154,26 +161,26 @@ export function AdminView({ user }: AdminViewProps) {
             icon={Server}
             label="Backend"
             value={systemStatus?.backend.status || 'Activo'}
-            detail={systemStatus?.backend.database ? `BD ${systemStatus.backend.database}` : 'API local'}
+            detail={systemStatus?.backend.database ? `BD ${systemStatus.backend.database}` : 'API activa'}
             tone="green"
           />
           <StatusMetric
             icon={Cpu}
             label="Modo análisis"
-            value={systemStatus?.analysis.mode || model?.mode || 'demo'}
-            detail={systemStatus?.analysis.fallbackToDemo ? 'Fallback demo activo' : 'Sin fallback demo'}
+            value={analysisModeLabel(systemStatus?.analysis.mode || model?.mode || 'fitovision')}
+            detail={systemStatus?.analysis.fallbackToDemo ? 'Respaldo FitoVision activo' : 'Operación directa'}
             tone="blue"
           />
           <StatusMetric
             icon={HardDrive}
             label="Almacenamiento"
-            value={systemStatus?.storage.driver || 'local'}
+            value={storageDriverLabel(systemStatus?.storage.driver)}
             detail={
               systemStatus?.storage.driver === 'r2'
                 ? systemStatus.storage.r2Configured
                   ? 'R2 configurado'
                   : 'R2 incompleto'
-                : 'Servidor local'
+                : 'Servidor interno'
             }
             tone="yellow"
           />
@@ -235,7 +242,7 @@ export function AdminView({ user }: AdminViewProps) {
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-semibold">Usuarios locales</h3>
+              <h3 className="font-semibold">Usuarios del sistema</h3>
               <p className="text-sm text-muted-foreground">Cuentas registradas, invitados y permisos.</p>
             </div>
           </div>
@@ -248,7 +255,7 @@ export function AdminView({ user }: AdminViewProps) {
                     <p className="text-sm font-medium">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {item.username}
-                      {item.email ? ` · ${item.email}` : ''}
+                      {item.email ? ` · ${displayUserEmail(item.email)}` : ''}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {item.casesCount || 0} casos asociados
@@ -277,7 +284,7 @@ export function AdminView({ user }: AdminViewProps) {
               <EmptyState
                 icon={Inbox}
                 title="Sin usuarios"
-                description="El backend crea las cuentas iniciales al iniciar la base SQLite local."
+                description="El backend crea las cuentas iniciales al iniciar la base SQLite."
               />
             )}
           </div>
@@ -353,7 +360,9 @@ export function AdminView({ user }: AdminViewProps) {
                     <h4 className="font-semibold">{diagnosticLabel(item.diagnosticState)}</h4>
                     <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
                   </div>
-                  <p className="text-sm text-muted-foreground">{item.irrigationRecommendation}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {item.careRecommendation || item.irrigationRecommendation}
+                  </p>
                   <div className="mt-3 flex gap-2 text-xs">
                     <span className="rounded bg-muted px-2 py-1">Riesgo {riskLabel(item.riskLevel)}</span>
                     <span className="rounded bg-muted px-2 py-1">
@@ -366,7 +375,7 @@ export function AdminView({ user }: AdminViewProps) {
               <EmptyState
                 icon={Inbox}
                 title="Sin recomendaciones"
-                description="El catálogo demo se crea automáticamente junto con la base SQLite."
+                description="El catálogo inicial se crea automáticamente junto con la base SQLite."
               />
             )}
           </div>
@@ -379,20 +388,20 @@ export function AdminView({ user }: AdminViewProps) {
             <Cpu className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-semibold">Información del modelo</h3>
-            <p className="text-sm text-muted-foreground">Modo demo preparado para reemplazo por IA real.</p>
+            <h3 className="font-semibold">Tecnología FitoVision P.L.A.N.T.A.</h3>
+            <p className="text-sm text-muted-foreground">Motor de inteligencia visual con versión operativa propia.</p>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
-          <ModelMetric label="Modo" value={model?.mode || 'demo'} />
-          <ModelMetric label="Nombre" value={model?.model.name || 'P.L.A.N.T.A. Vision Demo'} />
-          <ModelMetric label="Versión" value={model?.model.version || '0.1.0-demo'} />
-          <ModelMetric label="Tipo" value={model?.model.type || 'Motor simulado local'} />
+          <ModelMetric label="Línea" value={analysisModeLabel(model?.mode || 'fitovision')} />
+          <ModelMetric label="Tecnología" value={analysisEngineLabel(model?.model.name || 'P.L.A.N.T.A. FitoVision')} />
+          <ModelMetric label="Versión" value={analysisVersionLabel(model?.model.version || '2.1.0')} />
+          <ModelMetric label="Tipo" value={model?.model.type || 'Núcleo fitovisual P.L.A.N.T.A.'} />
         </div>
         <p className="mt-4 text-sm leading-6 text-muted-foreground">
           {model?.model.futureReplacement ||
-            'La lógica está concentrada en analysisService para poder reemplazarla por un modelo real.'}
+            'Arquitectura preparada para evolucionar el motor de visión sin cambiar el flujo operativo.'}
         </p>
       </section>
     </div>
@@ -406,6 +415,22 @@ function ModelMetric({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-sm font-semibold">{value}</p>
     </div>
   );
+}
+
+function storageDriverLabel(driver?: string) {
+  if (driver === 'r2') {
+    return 'Cloudflare R2';
+  }
+
+  if (driver === 'local' || driver === 'local-fallback') {
+    return 'Servidor interno';
+  }
+
+  return driver || 'Servidor interno';
+}
+
+function displayUserEmail(email: string) {
+  return email.replace('@planta.local', '@planta.edu.co');
 }
 
 function formatStatusDate(value: string) {

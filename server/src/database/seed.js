@@ -18,7 +18,7 @@ async function seedUsers() {
       const updates = [];
       const params = [];
 
-      if (!existing.email && user.email) {
+      if ((!existing.email || existing.email.endsWith('@planta.local')) && user.email) {
         updates.push('email = ?');
         params.push(normalizeEmail(user.email));
       }
@@ -71,12 +71,35 @@ async function seedZones() {
 }
 
 async function seedRecommendations() {
-  const { total } = await get('SELECT COUNT(*) AS total FROM recommendations');
-  if (total > 0) {
-    return;
-  }
-
   for (const recommendation of demoRecommendations) {
+    const existing = await get('SELECT id FROM recommendations WHERE diagnostic_state = ?', [
+      recommendation.diagnostic_state
+    ]);
+
+    if (existing) {
+      await run(
+        `UPDATE recommendations
+         SET risk_level = ?,
+             priority = ?,
+             irrigation_recommendation = ?,
+             automatic_observation = ?,
+             color = ?,
+             sort_order = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [
+          recommendation.risk_level,
+          recommendation.priority,
+          recommendation.irrigation_recommendation,
+          recommendation.automatic_observation,
+          recommendation.color,
+          recommendation.sort_order,
+          existing.id
+        ]
+      );
+      continue;
+    }
+
     await run(
       `INSERT INTO recommendations (
         diagnostic_state,
@@ -162,9 +185,29 @@ async function seedCases() {
   }
 }
 
+async function updateLegacyCaseRecommendations() {
+  const legacyTexts = [
+    'Mantener riego programado y verificar humedad del suelo durante la ronda regular.',
+    'Ajustar riego de forma moderada y programar una nueva revision en 48 horas.',
+    'Aplicar riego correctivo controlado y revisar drenaje, compactacion y exposicion solar.',
+    'Realizar inspeccion visual presencial antes de modificar el esquema de riego.'
+  ];
+
+  for (const recommendation of demoRecommendations) {
+    await run(
+      `UPDATE cases
+       SET irrigation_recommendation = ?
+       WHERE diagnostic_state = ?
+         AND irrigation_recommendation IN (${legacyTexts.map(() => '?').join(', ')})`,
+      [recommendation.irrigation_recommendation, recommendation.diagnostic_state, ...legacyTexts]
+    );
+  }
+}
+
 export async function seedDatabase() {
   await seedUsers();
   await seedZones();
   await seedRecommendations();
   await seedCases();
+  await updateLegacyCaseRecommendations();
 }

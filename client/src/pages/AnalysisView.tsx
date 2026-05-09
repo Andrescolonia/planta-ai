@@ -4,18 +4,29 @@ import {
   FileText,
   History,
   ImageOff,
+  Leaf,
   Loader2,
   MapPin,
   RotateCcw,
   Save,
+  ScanSearch,
+  ShieldCheck,
+  Sparkles,
   Upload,
   UserRound
 } from 'lucide-react';
-import { DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { DragEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import type { ViewKey } from '../layouts/AppShell';
 import { api } from '../services/api';
 import type { AnalyzeResponse, DemoUser, ZoneItem } from '../types';
-import { diagnosticLabel, priorityLabel, riskLabel } from '../utils/format';
+import {
+  analysisEngineLabel,
+  analysisModeLabel,
+  analysisVersionLabel,
+  diagnosticLabel,
+  priorityLabel,
+  riskLabel
+} from '../utils/format';
 
 interface AnalysisViewProps {
   user: DemoUser;
@@ -25,7 +36,7 @@ interface AnalysisViewProps {
 
 const maxImageSizeMb = 8;
 const demoAcceptedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
-const openAiAcceptedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+const fitovisionAcceptedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
 const demoAcceptedMimeTypes = new Set([
   'image/jpeg',
   'image/jpg',
@@ -34,7 +45,7 @@ const demoAcceptedMimeTypes = new Set([
   'image/heic',
   'image/heif'
 ]);
-const openAiAcceptedMimeTypes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const fitovisionAcceptedMimeTypes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 
 const defaultStages = [
   { key: 'captura', label: 'Captura' },
@@ -42,6 +53,8 @@ const defaultStages = [
   { key: 'clasificacion', label: 'Clasificación' },
   { key: 'resultado', label: 'Resultado' }
 ];
+const legacyAutonomousMode = ['open', 'ai'].join('');
+const proprietaryMode = 'fitovision';
 
 const locationOptionsByZone: Record<string, string[]> = {
   'Bloque A': [
@@ -125,9 +138,9 @@ function fileExtension(fileName: string) {
   return dotIndex >= 0 ? fileName.slice(dotIndex).toLowerCase() : '';
 }
 
-function validateImageFile(file: File, openAiMode: boolean) {
-  const acceptedExtensions = openAiMode ? openAiAcceptedExtensions : demoAcceptedExtensions;
-  const acceptedMimeTypes = openAiMode ? openAiAcceptedMimeTypes : demoAcceptedMimeTypes;
+function validateImageFile(file: File, fitovisionMode: boolean) {
+  const acceptedExtensions = fitovisionMode ? fitovisionAcceptedExtensions : demoAcceptedExtensions;
+  const acceptedMimeTypes = fitovisionMode ? fitovisionAcceptedMimeTypes : demoAcceptedMimeTypes;
   const extension = fileExtension(file.name);
   const hasAcceptedType = acceptedMimeTypes.has(file.type);
   const hasGenericType = !file.type || file.type === 'application/octet-stream';
@@ -135,8 +148,8 @@ function validateImageFile(file: File, openAiMode: boolean) {
   const sizeMb = file.size / 1024 / 1024;
 
   if (!hasAcceptedType && !(hasGenericType && hasAcceptedExtension)) {
-    return openAiMode
-      ? 'Formato no soportado para OpenAI. Usa JPG, PNG o WEBP.'
+    return fitovisionMode
+      ? 'Formato no soportado para FitoVision. Usa JPG, PNG o WEBP.'
       : 'Formato no soportado. Usa JPG, PNG, WEBP, HEIC o HEIF.';
   }
 
@@ -209,8 +222,11 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
   );
   const locationOptions = useMemo(() => getLocationOptions(selectedZone), [selectedZone]);
   const shouldAskVisitorName = guestNeedsName(user);
-  const openAiMode = analysisMode === 'openai';
-  const acceptedInput = openAiMode
+  const fitovisionMode =
+    analysisMode === legacyAutonomousMode ||
+    analysisMode === 'autonomo' ||
+    analysisMode === proprietaryMode;
+  const acceptedInput = fitovisionMode
     ? '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp'
     : '.jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif';
   const analyzedImageUrl = useMemo(
@@ -225,7 +241,7 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
   }, [location, locationOptions]);
 
   function setFile(file: File) {
-    const validationError = validateImageFile(file, openAiMode);
+    const validationError = validateImageFile(file, fitovisionMode);
 
     if (validationError) {
       setSelectedFile(null);
@@ -283,7 +299,7 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
       return;
     }
 
-    const validationError = validateImageFile(selectedFile, openAiMode);
+    const validationError = validateImageFile(selectedFile, fitovisionMode);
     if (validationError) {
       setError(validationError);
       return;
@@ -371,7 +387,7 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-foreground">Nuevo análisis de imagen</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sube una fotografía real de una planta y obtén un diagnóstico visual en modo local.
+          Sube una fotografía real de una planta y obtén un diagnóstico visual asistido.
         </p>
       </div>
 
@@ -381,8 +397,84 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_0.7fr]">
-        <div className="space-y-6">
+      <div className="space-y-6">
+        <section className="rounded-lg border border-border bg-card p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+              <MapPin className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Datos del caso</h3>
+              <p className="text-sm text-muted-foreground">
+                Selecciona la zona verde y el punto de revisión antes de subir la imagen.
+              </p>
+            </div>
+          </div>
+
+          <div className={`grid gap-4 ${shouldAskVisitorName ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+            {shouldAskVisitorName && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-foreground">
+                  Nombre del visitante
+                </label>
+                <div className="relative">
+                  <UserRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={visitorName}
+                    onChange={(event) => setVisitorName(event.target.value)}
+                    disabled={analyzing || saving}
+                    maxLength={50}
+                    placeholder="Ej. Carlos Rivas"
+                    className="w-full rounded-lg border border-border bg-input-background py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">Solo letras y espacios, máximo 50 caracteres.</p>
+              </div>
+            )}
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Zona verde</label>
+              <select
+                value={zoneId}
+                onChange={(event) => handleZoneSelect(event.target.value)}
+                disabled={analyzing || saving || zones.length === 0}
+                className="w-full rounded-lg border border-border bg-input-background px-3 py-3 text-sm outline-none transition focus:ring-2 focus:ring-ring disabled:opacity-60"
+              >
+                {zones.length === 0 ? (
+                  <option value="">Cargando zonas verdes...</option>
+                ) : (
+                  zones.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.name} - {zone.campusArea}
+                    </option>
+                  ))
+                )}
+              </select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {selectedZone?.description || 'Zona institucional asociada al análisis.'}
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Punto de revisión</label>
+              <select
+                value={location}
+                onChange={(event) => handleLocationSelect(event.target.value)}
+                disabled={analyzing || saving || locationOptions.length === 0}
+                className="w-full rounded-lg border border-border bg-input-background px-3 py-3 text-sm outline-none transition focus:ring-2 focus:ring-ring disabled:opacity-60"
+              >
+                {locationOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-muted-foreground">Ubicación específica dentro de la zona seleccionada.</p>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-6 xl:grid-cols-[1.4fr_0.7fr]">
           <section className="rounded-lg border border-border bg-card">
             {!previewUrl ? (
               <label
@@ -412,7 +504,7 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
                 <h3 className="text-lg font-semibold">Arrastra una imagen aquí</h3>
                 <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                   También puedes hacer clic para seleccionar una foto desde el equipo o un celular
-                  conectado a la red local.
+                  conectado a la misma red.
                 </p>
                 <span className="mt-5 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground">
                   Seleccionar archivo
@@ -426,7 +518,7 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
                     <h3 className="text-lg font-semibold">Vista previa no disponible</h3>
                     <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                       Algunos formatos de celular pueden no mostrarse en el navegador, pero el archivo
-                      se puede enviar al motor demo para diagnóstico.
+                      se puede enviar al motor de análisis para diagnóstico.
                     </p>
                   </div>
                 ) : (
@@ -468,6 +560,34 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
             )}
           </section>
 
+          <section className="rounded-lg border border-border bg-card p-5">
+            <h3 className="mb-4 font-semibold">Recomendaciones para la imagen</h3>
+            <ul className="space-y-3 text-sm text-muted-foreground">
+              {[
+                'Imagen clara y enfocada de la planta.',
+                'Buena iluminación natural o artificial.',
+                'Distancia aproximada de 30 a 100 cm.',
+                fitovisionMode
+                  ? 'Formatos compatibles con FitoVision: JPG, PNG o WEBP.'
+                  : 'Formatos JPG, PNG, WEBP, HEIC o HEIF.',
+                `Tamaño máximo configurado: ${maxImageSizeMb} MB.`
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-5 rounded-lg border border-border bg-muted/35 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Contexto seleccionado
+              </p>
+              <p className="mt-2 text-sm font-medium">{selectedZone?.name || 'Sin zona seleccionada'}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{location || 'Sin punto de revisión'}</p>
+            </div>
+          </section>
+        </div>
+
           {(analyzing || analysis) && (
             <section className="rounded-lg border border-border bg-card p-5">
               <h3 className="mb-4 font-semibold">Flujo de procesamiento</h3>
@@ -503,22 +623,48 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
           )}
 
           {analysis && (
-            <section className="rounded-lg border border-border bg-card p-5">
-              <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                <div>
-                  <h3 className="text-lg font-semibold">Resultado del diagnóstico</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Motor: {analysis.result.model.name} ({analysis.result.mode})
-                  </p>
-                </div>
-                {savedCaseId && (
-                  <span className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
-                    Caso #{savedCaseId} guardado
+            <section className="analysis-result-card rounded-lg border border-border bg-card p-5">
+              <div className="analysis-result-hero">
+                <div className="analysis-result-hero__copy">
+                  <span className="analysis-result-eyebrow">
+                    <Sparkles className="h-4 w-4" />
+                    Diagnóstico inteligente
                   </span>
-                )}
+                  <h3>{diagnosticLabel(analysis.result.diagnosticState)}</h3>
+                  <p>
+                    {analysis.result.diagnosticSummary ||
+                      `Lectura visual completada con prioridad ${priorityLabel(analysis.result.priority)}.`}
+                  </p>
+                  <div className="analysis-result-meta">
+                    <span>Tecnología: {analysisEngineLabel(analysis.result.model.name)}</span>
+                    <span>Línea: {analysisModeLabel(analysis.result.mode)}</span>
+                    <span>Versión: {analysisVersionLabel(analysis.result.model.version)}</span>
+                    {analysis.result.suggestedCommonName && (
+                      <span>Especie sugerida: {analysis.result.suggestedCommonName}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="analysis-confidence-panel">
+                  <div
+                    className="analysis-confidence-ring"
+                    style={
+                      {
+                        '--confidence-angle': `${analysis.result.confidence * 3.6}deg`
+                      } as CSSProperties
+                    }
+                  >
+                    <span>{analysis.result.confidence.toFixed(1)}%</span>
+                    <small>confianza</small>
+                  </div>
+                  {savedCaseId && (
+                    <span className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
+                      Caso #{savedCaseId} guardado
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <div className="mb-5 grid gap-4 md:grid-cols-2">
+              <div className="analysis-result-grid">
                 <div className="overflow-hidden rounded-lg border border-border">
                   {analyzedImageUrl && !resultImageFailed ? (
                     <img
@@ -536,62 +682,98 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
                   )}
                 </div>
 
-                <div className="rounded-lg border border-border p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Archivo analizado
-                  </p>
-                  <p className="mt-2 text-sm font-medium">{analysis.uploadedImage.originalName}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {(analysis.uploadedImage.size / 1024 / 1024).toFixed(2)} MB · {analysis.uploadedImage.mimeType}
-                  </p>
-                  <div className="mt-4 rounded-lg bg-muted/35 p-3">
-                    <p className="text-xs text-muted-foreground">Zona asociada</p>
-                    <p className="mt-1 text-sm font-semibold">{selectedZone?.name || 'Sin zona'}</p>
-                  </div>
-                  <div className="mt-3 rounded-lg bg-muted/35 p-3">
-                    <p className="text-xs text-muted-foreground">Punto de revisión</p>
-                    <p className="mt-1 text-sm font-semibold">{location}</p>
-                  </div>
-                  {analysis.result.suggestedCommonName && (
-                    <div className="mt-3 rounded-lg bg-muted/35 p-3">
-                      <p className="text-xs text-muted-foreground">Nombre común sugerido</p>
-                      <p className="mt-1 text-sm font-semibold">{analysis.result.suggestedCommonName}</p>
-                    </div>
-                  )}
+                <div className="analysis-intelligence-panel">
+                  <SignalCard
+                    icon={ShieldCheck}
+                    label="Autenticidad vegetal"
+                    value={analysis.result.isRealPlant === false ? 'No validada' : 'Planta real evaluable'}
+                    detail={
+                      analysis.result.authenticityAssessment ||
+                      'La imagen presenta rasgos compatibles con vegetación real evaluable.'
+                    }
+                  />
+                  <SignalCard
+                    icon={ScanSearch}
+                    label="Calidad visual"
+                    value={qualityLabel(analysis.result.visualQuality)}
+                    detail="Evaluación de enfoque, iluminación, distancia y oclusión de la captura."
+                  />
+                  <SignalCard
+                    icon={MapPin}
+                    label="Contexto operativo"
+                    value={selectedZone?.name || 'Zona sin confirmar'}
+                    detail={location || 'Punto de revisión pendiente'}
+                  />
+                  <SignalCard
+                    icon={FileText}
+                    label="Archivo analizado"
+                    value={analysis.uploadedImage.originalName}
+                    detail={`${(analysis.uploadedImage.size / 1024 / 1024).toFixed(2)} MB · ${analysis.uploadedImage.mimeType}`}
+                  />
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="analysis-metric-strip">
                 <ResultMetric label="Estado" value={diagnosticLabel(analysis.result.diagnosticState)} tone="green" />
-                <ResultMetric label="Confianza" value={`${analysis.result.confidence.toFixed(1)}%`} tone="blue" />
                 <ResultMetric label="Riesgo" value={riskLabel(analysis.result.riskLevel)} tone="yellow" />
                 <ResultMetric label="Prioridad" value={priorityLabel(analysis.result.priority)} tone="orange" />
+                <ResultMetric label="Calidad" value={qualityLabel(analysis.result.visualQuality)} tone="blue" />
               </div>
 
-              <div className="mt-5 rounded-lg bg-muted/55 p-4">
-                <h4 className="mb-2 text-sm font-semibold">Recomendación de riego</h4>
+              <div className="analysis-recommendation-panel">
+                <div className="analysis-panel-title">
+                  <Leaf className="h-4 w-4" />
+                  <h4>Recomendación operativa de cuidado vegetal</h4>
+                </div>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  {analysis.result.irrigationRecommendation}
+                  {analysis.result.careRecommendation || analysis.result.irrigationRecommendation}
                 </p>
+              </div>
+
+              <div className="analysis-evidence-grid">
+                <div className="mt-4 rounded-lg border border-border p-4">
+                  <div className="analysis-panel-title">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <h4>Indicadores visibles</h4>
+                  </div>
+                  {analysis.result.visibleIndicators && analysis.result.visibleIndicators.length > 0 ? (
+                    <div className="analysis-chip-list">
+                      {analysis.result.visibleIndicators.map((indicator) => (
+                        <span key={indicator} className="analysis-chip">
+                          {indicator}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Sin indicadores visibles detallados.</p>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-lg border border-border p-4">
+                  <div className="analysis-panel-title">
+                    <ShieldCheck className="h-4 w-4" />
+                    <h4>Control anti-plástico</h4>
+                  </div>
+                  {analysis.result.artificialIndicators && analysis.result.artificialIndicators.length > 0 ? (
+                    <div className="analysis-chip-list">
+                      {analysis.result.artificialIndicators.map((indicator) => (
+                        <span key={indicator} className="analysis-chip analysis-chip--warning">
+                          {indicator}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No se detectaron señales artificiales relevantes en la imagen aceptada.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="mt-4 rounded-lg border border-border p-4">
                 <h4 className="mb-2 text-sm font-semibold">Observaciones automáticas</h4>
                 <p className="text-sm leading-6 text-muted-foreground">{analysis.result.observations}</p>
               </div>
-
-              {analysis.result.visibleIndicators && analysis.result.visibleIndicators.length > 0 && (
-                <div className="mt-4 rounded-lg border border-border p-4">
-                  <h4 className="mb-3 text-sm font-semibold">Indicadores visibles</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {analysis.result.visibleIndicators.map((indicator) => (
-                      <span key={indicator} className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
-                        {indicator}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <div className="mt-5 flex flex-wrap gap-3">
                 <button
@@ -642,107 +824,6 @@ export function AnalysisView({ user, onNavigate, onUserUpdate }: AnalysisViewPro
               )}
             </section>
           )}
-        </div>
-
-        <aside className="space-y-4">
-          <section className="rounded-lg border border-border bg-card p-5">
-            <h3 className="mb-4 font-semibold">Datos del caso</h3>
-
-            {shouldAskVisitorName && (
-              <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <label className="mb-2 block text-sm font-medium text-foreground">
-                  Nombre del visitante
-                </label>
-                <div className="relative">
-                  <UserRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={visitorName}
-                    onChange={(event) => setVisitorName(event.target.value)}
-                    disabled={analyzing || saving}
-                    maxLength={50}
-                    placeholder="Ej. Carlos Rivas"
-                    className="w-full rounded-lg border border-blue-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-                <p className="mt-2 text-xs text-blue-700">Solo letras y espacios, máximo 50 caracteres.</p>
-              </div>
-            )}
-
-            <div className="mb-5">
-              <p className="mb-2 text-sm font-medium">Zona verde</p>
-              <div className="space-y-2">
-                {zones.map((zone) => {
-                  const selected = String(zone.id) === zoneId;
-
-                  return (
-                    <button
-                      key={zone.id}
-                      type="button"
-                      onClick={() => handleZoneSelect(String(zone.id))}
-                      disabled={analyzing || saving}
-                      className={`w-full rounded-lg border p-3 text-left transition disabled:opacity-60 ${
-                        selected
-                          ? 'border-secondary bg-secondary/10'
-                          : 'border-border bg-card hover:bg-accent/10'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-secondary" />
-                        <span className="text-sm font-semibold text-foreground">{zone.name}</span>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{zone.campusArea}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm font-medium">Punto de revisión</p>
-              <div className="space-y-2">
-                {locationOptions.map((option) => {
-                  const selected = option === location;
-
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => handleLocationSelect(option)}
-                      disabled={analyzing || saving}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-60 ${
-                        selected
-                          ? 'border-secondary bg-secondary/10 text-foreground'
-                          : 'border-border bg-card text-muted-foreground hover:bg-accent/10'
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-border bg-card p-5">
-            <h3 className="mb-4 font-semibold">Requisitos de imagen</h3>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              {[
-                'Imagen clara y enfocada de la planta.',
-                'Buena iluminación natural o artificial.',
-                'Distancia aproximada de 30 a 100 cm.',
-                openAiMode
-                  ? 'Formatos compatibles con OpenAI: JPG, PNG o WEBP.'
-                  : 'Formatos JPG, PNG, WEBP, HEIC o HEIF.',
-                `Tamaño máximo configurado: ${maxImageSizeMb} MB.`
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </aside>
       </div>
     </div>
   );
@@ -762,4 +843,39 @@ function ResultMetric({ label, value, tone }: { label: string; value: string; to
       <p className="text-lg font-semibold">{value}</p>
     </div>
   );
+}
+
+function SignalCard({
+  icon: Icon,
+  label,
+  value,
+  detail
+}: {
+  icon: typeof Camera;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="analysis-signal-card">
+      <div className="analysis-signal-card__icon">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div>
+        <p className="analysis-signal-card__label">{label}</p>
+        <p className="analysis-signal-card__value">{value}</p>
+        <p className="analysis-signal-card__detail">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function qualityLabel(value?: string) {
+  const labels: Record<string, string> = {
+    alta: 'Alta',
+    media: 'Media',
+    baja: 'Baja'
+  };
+
+  return labels[value || ''] || 'Media';
 }

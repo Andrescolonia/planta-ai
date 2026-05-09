@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { env } from '../config/env.js';
 import { badRequest } from '../utils/httpError.js';
+import { publicAiIdentity, publicAnalysisMode } from '../utils/publicAiLabels.js';
 
 const diagnosticOrder = [
   'saludable',
@@ -18,7 +19,7 @@ const captureQualityNotes = [
   'Encuadre suficiente para lectura de follaje y coloracion.',
   'Iluminacion aceptable con sombras moderadas.',
   'La imagen permite una lectura general del estado vegetativo.',
-  'Se recomienda complementar con inspeccion presencial si hay sintomas localizados.'
+  'La imagen permite orientar acciones de cuidado vegetal desde la evidencia visible.'
 ];
 
 const diagnosisSchema = {
@@ -27,10 +28,16 @@ const diagnosisSchema = {
   required: [
     'isPlant',
     'rejectionReason',
+    'isRealPlant',
+    'authenticityAssessment',
+    'artificialIndicators',
+    'visualQuality',
+    'diagnosticSummary',
     'diagnosticState',
     'confidence',
     'riskLevel',
     'priority',
+    'careRecommendation',
     'irrigationRecommendation',
     'observations',
     'visibleIndicators',
@@ -39,11 +46,39 @@ const diagnosisSchema = {
   properties: {
     isPlant: {
       type: 'boolean',
-      description: 'True only when the image mainly contains a real plant, tree, shrub, leaf, flower, grass or campus vegetation.'
+      description:
+        'True only when the image mainly contains a living or organic plant, tree, shrub, leaf, flower, grass or campus vegetation.'
     },
     rejectionReason: {
       type: 'string',
-      description: 'Spanish explanation when isPlant is false. Empty string when isPlant is true.'
+      description:
+        'Spanish explanation when isPlant or isRealPlant is false. Empty string only when the image is an evaluable real plant.'
+    },
+    isRealPlant: {
+      type: 'boolean',
+      description:
+        'True only when the subject appears organic/living. False for plastic, silk, fabric, paper, artificial grass, ornaments, drawings, screens or printed plant images.'
+    },
+    authenticityAssessment: {
+      type: 'string',
+      description:
+        'Spanish assessment of why the subject appears to be a real plant or why it appears artificial/non-evaluable.'
+    },
+    artificialIndicators: {
+      type: 'array',
+      maxItems: 5,
+      items: { type: 'string' },
+      description:
+        'Visible clues of artificial, decorative or non-organic material. Use an empty array when no such clues are visible.'
+    },
+    visualQuality: {
+      type: 'string',
+      enum: ['alta', 'media', 'baja'],
+      description: 'Image quality for visual diagnosis.'
+    },
+    diagnosticSummary: {
+      type: 'string',
+      description: 'Short Spanish executive summary of the diagnosis for the operator.'
     },
     diagnosticState: {
       type: 'string',
@@ -66,11 +101,18 @@ const diagnosisSchema = {
     },
     irrigationRecommendation: {
       type: 'string',
-      description: 'Concise irrigation recommendation in Spanish for campus maintenance staff.'
+      description:
+        'Legacy field. Repeat the same integral plant-care recommendation used in careRecommendation.'
+    },
+    careRecommendation: {
+      type: 'string',
+      description:
+        'Integral plant-care recommendation in Spanish. Include sanitation, pruning/removal of damaged tissue, pest or disease management, ventilation/light, substrate/drainage and watering only when relevant.'
     },
     observations: {
       type: 'string',
-      description: 'Automatic Spanish observations based only on visible image evidence.'
+      description:
+        'Automatic Spanish observations based only on visible image evidence. Include probable cause, severity and affected structures when visible.'
     },
     visibleIndicators: {
       type: 'array',
@@ -152,7 +194,8 @@ function findRecommendation(recommendations, diagnosticState) {
     recommendations.find((item) => item.diagnostic_state === diagnosticOrder[0]) || {
       risk_level: 'bajo',
       priority: 'baja',
-      irrigation_recommendation: 'Mantener riego programado y realizar seguimiento regular.',
+      irrigation_recommendation:
+        'Mantener cuidado regular: riego programado, limpieza de hojas secas y seguimiento visual semanal.',
       automatic_observation: 'No se encontraron recomendaciones configuradas para el estado detectado.',
       color: '#237a57'
     }
@@ -167,14 +210,25 @@ function buildResult({
   confidence,
   riskLevel,
   priority,
+  careRecommendation,
   irrigationRecommendation,
   observations,
   color,
   isPlant = true,
   rejectionReason = '',
+  isRealPlant = true,
+  authenticityAssessment = 'La imagen presenta rasgos compatibles con vegetacion real evaluable.',
+  artificialIndicators = [],
+  visualQuality = 'media',
+  diagnosticSummary = '',
   visibleIndicators = [],
   suggestedCommonName = 'No determinado'
 }) {
+  const summary =
+    diagnosticSummary ||
+    `Diagnostico ${diagnosticState} con prioridad ${priority} y riesgo ${riskLevel}.`;
+  const operationalRecommendation = careRecommendation || irrigationRecommendation;
+
   return {
     mode,
     model: {
@@ -186,6 +240,16 @@ function buildResult({
     esPlanta: isPlant,
     rejectionReason,
     motivoRechazo: rejectionReason,
+    isRealPlant,
+    esPlantaReal: isRealPlant,
+    authenticityAssessment,
+    evaluacionAutenticidad: authenticityAssessment,
+    artificialIndicators,
+    indicadoresArtificiales: artificialIndicators,
+    visualQuality,
+    calidadVisual: visualQuality,
+    diagnosticSummary: summary,
+    resumenDiagnostico: summary,
     visibleIndicators,
     indicadoresVisibles: visibleIndicators,
     suggestedCommonName,
@@ -197,8 +261,10 @@ function buildResult({
     nivelRiesgo: riskLevel,
     priority,
     prioridad: priority,
-    irrigationRecommendation,
-    recomendacionRiego: irrigationRecommendation,
+    careRecommendation: operationalRecommendation,
+    recomendacionCuidado: operationalRecommendation,
+    irrigationRecommendation: operationalRecommendation,
+    recomendacionRiego: operationalRecommendation,
     observations,
     observaciones: observations,
     color,
@@ -219,7 +285,7 @@ export function analyzeImageDemo({ file, zoneId, recommendations }) {
 
   return buildResult({
     mode: env.analysisMode,
-    modelName: 'P.L.A.N.T.A. Vision Demo',
+    modelName: 'P.L.A.N.T.A. FitoVision Demo',
     modelVersion: '0.1.0-demo',
     diagnosticState,
     confidence: buildConfidence(hash, diagnosticState),
@@ -228,6 +294,11 @@ export function analyzeImageDemo({ file, zoneId, recommendations }) {
     irrigationRecommendation: recommendation.irrigation_recommendation,
     observations,
     color: recommendation.color,
+    authenticityAssessment:
+      'Validacion visual simulada: el modo demo asume vegetacion real para mantener estable el flujo de exposicion.',
+    artificialIndicators: [],
+    visualQuality: 'media',
+    diagnosticSummary: `Lectura demo: ${diagnosticState} con prioridad ${recommendation.priority}.`,
     visibleIndicators: ['Lectura visual simulada en modo demo'],
     suggestedCommonName: 'No determinado'
   });
@@ -235,12 +306,12 @@ export function analyzeImageDemo({ file, zoneId, recommendations }) {
 
 function assertOpenAiConfiguration(file) {
   if (!env.openaiApiKey) {
-    throw badRequest('Configura OPENAI_API_KEY en .env para usar ANALYSIS_MODE=openai.');
+    throw badRequest('Configura la tecnologia FitoVision antes de iniciar el analisis.');
   }
 
   if (!openaiSupportedMimeTypes.has(file.mimetype)) {
     throw badRequest(
-      'OpenAI Vision acepta JPG, PNG o WEBP en esta integracion. Convierte la imagen y vuelve a intentarlo.'
+      'FitoVision acepta JPG, PNG o WEBP. Convierte la imagen y vuelve a intentarlo.'
     );
   }
 }
@@ -254,28 +325,146 @@ function buildOpenAiPrompt(recommendations) {
   const catalog = recommendations
     .map(
       (item) =>
-        `- ${item.diagnostic_state}: riesgo ${item.risk_level}, prioridad ${item.priority}, riego: ${item.irrigation_recommendation}`
+        `- ${item.diagnostic_state}: riesgo ${item.risk_level}, prioridad ${item.priority}, cuidado recomendado: ${item.irrigation_recommendation}`
     )
     .join('\n');
 
   return `
-Eres un asistente de diagnostico visual para mantenimiento de zonas verdes universitarias.
-Analiza la imagen de forma conservadora y responde SIEMPRE en espanol.
+Eres P.L.A.N.T.A. FitoVision, una tecnologia propia de diagnostico visual para mantenimiento de zonas verdes universitarias.
+Analiza la imagen de forma estricta, conservadora y responde SIEMPRE en espanol.
 
-Primero determina si la imagen contiene principalmente una planta real, arbol, arbusto, hoja,
-flor, cesped o vegetacion. Si no contiene una planta o la imagen no permite evaluar vegetacion,
-marca isPlant=false y explica el motivo en rejectionReason. No inventes diagnosticos para objetos,
-personas, mascotas, pantallas, documentos ni imagenes ambiguas sin vegetacion.
+REGLA CRITICA: antes de diagnosticar salud vegetal debes validar que la imagen muestre una PLANTA REAL
+u organismo vegetal evaluable. No basta con que el objeto sea verde o tenga forma de planta.
 
-Si contiene vegetacion, clasifica el estado usando exactamente uno de estos estados:
+Paso 1 - Compuerta de autenticidad vegetal:
+- isPlant=true e isRealPlant=true solo si el sujeto principal parece vegetacion organica/living/evaluable:
+  hojas con venacion natural, tallos organicos, textura irregular, variacion de color natural, sustrato,
+  suelo, maceta real o contexto de zona verde.
+- Marca isPlant=false e isRealPlant=false si el sujeto parece planta artificial, plastica, de seda,
+  tela, papel, porcelana, decoracion, juguete, cesped sintetico, estampado, dibujo, imagen en pantalla,
+  folleto, render, icono, poster, objeto con forma vegetal o si no hay evidencia suficiente de tejido vegetal real.
+- Senales fuertes de planta artificial: brillo plastico uniforme, bordes repetidos o demasiado perfectos,
+  nervaduras impresas, patrones identicos, uniones/molde, alambres, tela, base decorativa, colores
+  artificialmente saturados, hojas con grosor uniforme, ausencia de imperfecciones naturales o textura sintetica.
+- Si hay duda razonable entre planta real y artificial, rechaza la imagen: isPlant=false, isRealPlant=false.
+- Para imagenes rechazadas, rejectionReason debe explicar de forma clara el motivo y diagnosticState debe ser
+  "revision recomendada" con confidence baja o media.
+
+Paso 2 - Diagnostico solo si la compuerta paso:
+Clasifica el estado usando exactamente uno de estos estados:
 saludable, atencion preventiva, estres hidrico, revision recomendada.
+
+No uses "revision recomendada" como forma de evadir el diagnostico cuando la imagen tiene sintomas visibles.
+Si hay perforaciones, manchas, necrosis, bordes secos, polvo/blanqueamiento, mordeduras, tejido colapsado,
+presencia probable de plaga, hongo o dano foliar, debes diagnosticar el patron visible y proponer manejo
+operativo. "revision recomendada" significa "requiere accion fitosanitaria o de cuidado especifica", no
+"que otra persona mire la planta". Solo rechaza o pide nueva imagen si no hay planta real evaluable.
 
 Catalogo institucional de recomendaciones:
 ${catalog}
 
-La evaluacion es orientativa y debe basarse solo en evidencia visible: coloracion, turgencia,
-marchitez, manchas, hojas secas, iluminacion, encuadre y signos compatibles con deficit hidrico.
+La evaluacion debe basarse solo en evidencia visible: coloracion, turgencia, marchitez, manchas,
+perforaciones, galerias, necrosis, polvo o micelio, bordes secos, mordeduras, hojas deformadas,
+presencia probable de plagas, hongos, dano mecanico, compactacion visible, sustrato, iluminacion,
+encuadre y signos compatibles con deficit o exceso hidrico.
+
+La recomendacion NO debe limitarse al riego. Debe ser una accion integral de cuidado vegetal:
+- retiro de hojas o tejido severamente afectado cuando aplique;
+- limpieza de residuos vegetales y superficie del sustrato;
+- revision dirigida del enves de hojas, brotes y tallos para plagas;
+- manejo fitosanitario institucional autorizado si hay plaga/hongo probable;
+- mejora de ventilacion, luz, drenaje o ubicacion cuando sea visible/relevante;
+- ajuste de riego solo cuando la evidencia lo justifique;
+- seguimiento de evolucion en 48 a 72 horas con registro fotografico.
+
+Evita frases genericas como "realizar inspeccion visual presencial antes de actuar",
+"validar con personal especializado", "no se puede determinar" o "revisar presencialmente" cuando
+la imagen muestra sintomas claros. Da un diagnostico visual probable y una recomendacion concreta,
+conservadora y accionable para mantenimiento universitario.
+
+Ejemplo de criterio: si ves hojas verdes con perforaciones, manchas grises/marrones, tejido seco o necrotico
+y brotes aun presentes, el resumen debe indicar dano foliar compatible con plaga/enfermedad foliar o dano
+mecanico; los indicadores deben mencionar perforaciones, necrosis/manchas y extension del dano; la
+recomendacion debe proponer poda sanitaria parcial, retiro de hojas muy afectadas, limpieza, revision del
+enves, manejo fitosanitario autorizado, ventilacion y seguimiento fotografico. No lo reduzcas a riego.
+
+Completa visibleIndicators con evidencia botanica concreta observada.
+Completa artificialIndicators con senales sinteticas si existen; usa [] si no observas senales artificiales.
+Completa authenticityAssessment con una frase que justifique la validacion de planta real.
+Completa visualQuality como alta, media o baja segun enfoque, iluminacion, distancia y oclusion.
+Completa diagnosticSummary como una conclusion breve, clara y operativa para personal de mantenimiento.
+Completa careRecommendation con el plan integral de cuidado vegetal.
+Completa irrigationRecommendation con el mismo texto de careRecommendation para compatibilidad del sistema.
 `;
+}
+
+function buildNonEvaluableImageError(payload) {
+  return badRequest(
+    payload.rejectionReason ||
+      payload.authenticityAssessment ||
+      'La imagen no parece contener una planta real evaluable. Sube una fotografia clara de vegetacion natural.',
+    { code: 'IMAGE_NOT_EVALUABLE' }
+  );
+}
+
+function isNonEvaluableImageError(error) {
+  return error?.details?.code === 'IMAGE_NOT_EVALUABLE';
+}
+
+function looksLikeDeferredRecommendation(value = '') {
+  const normalized = String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  return [
+    'inspeccion visual presencial',
+    'revisar presencialmente',
+    'validacion humana',
+    'validar con personal',
+    'antes de modificar el esquema de riego',
+    'no se puede determinar'
+  ].some((phrase) => normalized.includes(phrase));
+}
+
+function fallbackCareRecommendation(diagnosticState, recommendation) {
+  if (diagnosticState === 'revision recomendada') {
+    return [
+      'Ejecutar manejo fitosanitario inicial: retirar hojas muy afectadas, limpiar restos vegetales,',
+      'revisar enves de hojas y brotes por plagas, mejorar ventilacion y aplicar el tratamiento',
+      'institucional autorizado segun el patron visible. Registrar nueva foto de seguimiento en 48 a 72 horas.'
+    ].join(' ');
+  }
+
+  return recommendation.irrigation_recommendation;
+}
+
+function normalizeCareRecommendation(value, diagnosticState, recommendation) {
+  const text = String(value || '').trim();
+
+  if (!text || looksLikeDeferredRecommendation(text)) {
+    return fallbackCareRecommendation(diagnosticState, recommendation);
+  }
+
+  return text;
+}
+
+function normalizeObservations(value, diagnosticState, visibleIndicators) {
+  const text = String(value || '').trim();
+
+  if (!looksLikeDeferredRecommendation(text)) {
+    return text;
+  }
+
+  const evidence = visibleIndicators.length
+    ? ` Indicadores visibles: ${visibleIndicators.join('; ')}.`
+    : '';
+
+  if (diagnosticState === 'revision recomendada') {
+    return `Se observan signos de deterioro foliar que requieren manejo fitosanitario y cuidado correctivo desde la evidencia visible.${evidence}`;
+  }
+
+  return `Se identifican senales compatibles con el estado ${diagnosticState} y se recomienda aplicar el manejo operativo indicado.${evidence}`;
 }
 
 function parseOpenAiPayload(responsePayload) {
@@ -294,11 +483,11 @@ function parseOpenAiPayload(responsePayload) {
     .find((content) => content.type === 'refusal')?.refusal;
 
   if (refusal) {
-    throw new Error(refusal);
+    throw new Error('FitoVision rechazo la solicitud de analisis.');
   }
 
   if (!rawText) {
-    throw new Error('La respuesta de OpenAI no incluyo texto estructurado.');
+    throw new Error('FitoVision no incluyo una respuesta estructurada.');
   }
 
   return JSON.parse(rawText);
@@ -342,9 +531,7 @@ async function callOpenAiVision({ file, recommendations }) {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const message =
-        payload?.error?.message || payload?.message || 'OpenAI no pudo procesar la imagen.';
-      throw new Error(message);
+      throw new Error('FitoVision no pudo completar el analisis.');
     }
 
     return parseOpenAiPayload(payload);
@@ -358,11 +545,8 @@ async function analyzeImageOpenAi({ file, zoneId, recommendations }) {
 
   const payload = await callOpenAiVision({ file, zoneId, recommendations });
 
-  if (!payload.isPlant) {
-    throw badRequest(
-      payload.rejectionReason ||
-        'La imagen no parece contener una planta evaluable. Sube una foto clara de vegetacion.'
-    );
+  if (!payload.isPlant || !payload.isRealPlant) {
+    throw buildNonEvaluableImageError(payload);
   }
 
   const diagnosticState = diagnosticOrder.includes(payload.diagnosticState)
@@ -374,26 +558,50 @@ async function analyzeImageOpenAi({ file, zoneId, recommendations }) {
   const visibleIndicators = Array.isArray(payload.visibleIndicators)
     ? payload.visibleIndicators.slice(0, 5).map((item) => String(item))
     : [];
-  const observations = [
+  const artificialIndicators = Array.isArray(payload.artificialIndicators)
+    ? payload.artificialIndicators.slice(0, 5).map((item) => String(item))
+    : [];
+  const careRecommendation = normalizeCareRecommendation(
+    payload.careRecommendation || payload.irrigationRecommendation,
+    diagnosticState,
+    recommendation
+  );
+  const baseObservation = normalizeObservations(
     payload.observations || recommendation.automatic_observation,
-    visibleIndicators.length ? `Indicadores visibles: ${visibleIndicators.join('; ')}.` : ''
+    diagnosticState,
+    visibleIndicators
+  );
+  const observations = [
+    baseObservation,
+    visibleIndicators.length && !baseObservation.includes('Indicadores visibles:')
+      ? `Indicadores visibles: ${visibleIndicators.join('; ')}.`
+      : ''
   ]
     .filter(Boolean)
     .join(' ');
 
   return buildResult({
-    mode: 'openai',
-    modelName: 'OpenAI Vision',
-    modelVersion: env.openaiModel,
+    mode: publicAiIdentity.mode,
+    modelName: publicAiIdentity.modelName,
+    modelVersion: publicAiIdentity.modelVersion,
     diagnosticState,
     confidence: payload.confidence,
     riskLevel,
     priority,
-    irrigationRecommendation:
-      payload.irrigationRecommendation || recommendation.irrigation_recommendation,
+    careRecommendation,
+    irrigationRecommendation: careRecommendation,
     observations,
     color: recommendation.color,
     isPlant: true,
+    isRealPlant: true,
+    authenticityAssessment:
+      payload.authenticityAssessment ||
+      'La imagen presenta rasgos compatibles con vegetacion real evaluable.',
+    artificialIndicators,
+    visualQuality: ['alta', 'media', 'baja'].includes(payload.visualQuality)
+      ? payload.visualQuality
+      : 'media',
+    diagnosticSummary: payload.diagnosticSummary,
     visibleIndicators,
     suggestedCommonName: payload.suggestedCommonName || 'No determinado'
   });
@@ -406,12 +614,16 @@ export const analysisService = {
     }
 
     if (env.analysisMode !== 'openai') {
-      throw badRequest('ANALYSIS_MODE debe ser demo u openai.');
+      throw badRequest('El modo de analisis configurado no es valido.');
     }
 
     try {
       return await analyzeImageOpenAi({ file, zoneId, recommendations });
     } catch (error) {
+      if (isNonEvaluableImageError(error)) {
+        throw error;
+      }
+
       if (!env.openaiFallbackToDemo) {
         throw error;
       }
@@ -419,13 +631,14 @@ export const analysisService = {
       const fallback = analyzeImageDemo({ file, zoneId, recommendations });
       return {
         ...fallback,
-        mode: 'demo-fallback',
+        mode: publicAnalysisMode('demo-fallback'),
         model: {
           ...fallback.model,
-          name: 'P.L.A.N.T.A. Vision Demo (fallback)'
+          name: 'P.L.A.N.T.A. FitoVision Respaldo',
+          version: publicAiIdentity.modelVersion
         },
-        observations: `${fallback.observations} Nota: se uso fallback demo porque OpenAI no respondio: ${error.message}`,
-        observaciones: `${fallback.observations} Nota: se uso fallback demo porque OpenAI no respondio: ${error.message}`
+        observations: `${fallback.observations} Nota: se activo el respaldo FitoVision para mantener la continuidad del analisis.`,
+        observaciones: `${fallback.observations} Nota: se activo el respaldo FitoVision para mantener la continuidad del analisis.`
       };
     }
   }

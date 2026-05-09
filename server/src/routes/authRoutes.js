@@ -166,7 +166,7 @@ authRouter.get(
     }
 
     res.json({
-      message: 'Sesion local valida.',
+      message: 'Sesion valida.',
       user: formatUser(user),
       session: createSession(user, user.is_guest ? 'guest-local' : 'local')
     });

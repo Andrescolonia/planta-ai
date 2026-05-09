@@ -1,17 +1,16 @@
 import {
   BarChart3,
-  Bell,
   History,
   LayoutDashboard,
   LogOut,
   MapPin,
-  Search,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   Sprout,
-  UploadCloud,
-  UserRound
+  UploadCloud
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { DemoUser } from '../types';
 
 export type ViewKey = 'dashboard' | 'analisis' | 'historial' | 'zonas' | 'reportes' | 'admin';
@@ -40,7 +39,18 @@ const roleLabels = {
   administrador: 'Administrador'
 };
 
+const SIDEBAR_COLLAPSED_KEY = 'planta-sidebar-collapsed';
+
+function readStoredSidebarState() {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export function AppShell({ user, currentView, onNavigate, onLogout, children }: AppShellProps) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readStoredSidebarState);
   const visibleMenuItems = menuItems.filter(
     (item) => item.id !== 'admin' || user.role === 'administrador'
   );
@@ -51,22 +61,44 @@ export function AppShell({ user, currentView, onNavigate, onLogout, children }: 
     .slice(0, 2)
     .toUpperCase();
 
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="no-print hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
+    <div className="planta-app-shell flex min-h-screen bg-background text-foreground">
+      <aside
+        className="planta-sidebar no-print hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition lg:flex"
+        style={{ width: sidebarCollapsed ? 88 : 256 }}
+      >
         <div className="border-b border-sidebar-border p-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary">
+          <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <Sprout className="h-6 w-6 text-white" />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-white">P.L.A.N.T.A.</h1>
-              <p className="text-xs text-white/58">Gestión institucional</p>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <h1 className="text-lg font-semibold text-white">P.L.A.N.T.A.</h1>
+                <p className="text-xs text-white/58">Gestión institucional</p>
+              </div>
+            )}
           </div>
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            aria-pressed={sidebarCollapsed}
+            aria-label={sidebarCollapsed ? 'Expandir navegación lateral' : 'Colapsar navegación lateral'}
+            title={sidebarCollapsed ? 'Expandir navegación' : 'Colapsar navegación'}
+            className={`mt-4 flex w-full items-center rounded-lg border border-white/10 px-3 py-2 text-sm text-white/78 transition hover:bg-white/10 ${
+              sidebarCollapsed ? 'justify-center' : 'justify-between'
+            }`}
+          >
+            {!sidebarCollapsed && <span>Navegación</span>}
+            {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
         </div>
 
-        <nav className="flex-1 space-y-1 p-4">
+        <nav className={`flex-1 space-y-1 ${sidebarCollapsed ? 'p-3' : 'p-4'}`}>
           {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const active = currentView === item.id;
@@ -75,51 +107,52 @@ export function AppShell({ user, currentView, onNavigate, onLogout, children }: 
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition ${
+                title={item.label}
+                className={`flex w-full items-center rounded-lg py-3 transition ${
                   active
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                     : 'text-white/78 hover:bg-sidebar-accent hover:text-white'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center px-3' : 'gap-3 px-4 text-left'}`}
               >
-                <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
+                <Icon className="h-5 w-5 shrink-0" />
+                {!sidebarCollapsed && <span>{item.label}</span>}
               </button>
             );
           })}
         </nav>
 
-        <div className="border-t border-sidebar-border p-4">
-          <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
+        <div className={`border-t border-sidebar-border ${sidebarCollapsed ? 'p-3' : 'p-4'}`}>
+          <div
+            className={`flex items-center rounded-lg bg-white/5 p-3 ${
+              sidebarCollapsed ? 'justify-center' : 'gap-3'
+            }`}
+            title={`${user.name} · ${roleLabels[user.role]}`}
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground">
               {initials}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{user.name}</p>
-              <p className="text-xs text-white/58">{roleLabels[user.role]}</p>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">{user.name}</p>
+                <p className="text-xs text-white/58">{roleLabels[user.role]}</p>
+              </div>
+            )}
           </div>
           <button
             onClick={onLogout}
+            title="Cerrar sesión"
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-white/78 transition hover:bg-white/10"
           >
             <LogOut className="h-4 w-4" />
-            Cerrar sesión
+            {!sidebarCollapsed && 'Cerrar sesión'}
           </button>
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="no-print sticky top-0 z-20 border-b border-border bg-card/95 px-4 py-3 backdrop-blur lg:px-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="relative hidden min-w-0 max-w-md flex-1 md:block">
-              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                placeholder="Buscar diagnósticos, zonas o alertas..."
-                className="w-full rounded-lg border border-border bg-input-background py-2 pl-10 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
-              />
-            </div>
-
-            <nav className="flex gap-1 overflow-x-auto lg:hidden">
+      <div className="planta-content flex min-w-0 flex-1 flex-col">
+        <header className="no-print border-b border-border bg-card px-4 py-3 lg:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <nav className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
               {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -137,25 +170,17 @@ export function AppShell({ user, currentView, onNavigate, onLogout, children }: 
               })}
             </nav>
 
-            <div className="ml-auto flex items-center gap-3">
-              <button className="relative rounded-lg p-2 transition hover:bg-accent/20" title="Alertas">
-                <Bell className="h-5 w-5" />
-                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
-              </button>
-              <div className="hidden items-center gap-2 rounded-lg border border-border px-3 py-2 md:flex">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <UserRound className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium leading-none">{user.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{roleLabels[user.role]}</p>
-                </div>
-              </div>
-            </div>
+            <button
+              onClick={onLogout}
+              className="shrink-0 rounded-lg border border-border bg-card p-2 text-foreground transition hover:bg-accent/20"
+              title="Cerrar sesión"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
           </div>
         </header>
 
-        <main className="planta-scrollbar flex-1 overflow-auto">{children}</main>
+        <main className="planta-main planta-scrollbar flex-1 overflow-auto">{children}</main>
       </div>
     </div>
   );

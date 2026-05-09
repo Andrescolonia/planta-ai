@@ -79,9 +79,9 @@ analysisRouter.post(
 
     res.json({
       message:
-        result.mode === 'openai'
-          ? 'Analisis con OpenAI completado.'
-          : 'Analisis demo completado.',
+        result.mode === 'fitovision'
+          ? 'Analisis FitoVision completado.'
+          : 'Analisis completado.',
       uploadedImage: {
         path: storedImage.path,
         url: storedImage.url,

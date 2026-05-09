@@ -15,6 +15,12 @@ import { getOperationalStatus } from '../services/operationalStatus.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { formatRecommendation, formatUser } from '../utils/formatters.js';
 import { badRequest, notFound } from '../utils/httpError.js';
+import {
+  publicAiIdentity,
+  publicAnalysisMode,
+  publicModelName,
+  publicModelVersion
+} from '../utils/publicAiLabels.js';
 
 export const adminRouter = Router();
 
@@ -40,9 +46,9 @@ adminRouter.get(
         uptimeSeconds: runtime.uptimeSeconds
       },
       analysis: {
-        mode: env.analysisMode,
-        model: env.analysisMode === 'openai' ? env.openaiModel : '0.1.0-demo',
-        openaiConfigured: Boolean(env.openaiApiKey),
+        mode: publicAnalysisMode(env.analysisMode),
+        model: publicModelVersion(env.analysisMode),
+        engineConfigured: env.analysisMode === 'openai' ? Boolean(env.openaiApiKey) : true,
         fallbackToDemo: env.openaiFallbackToDemo
       },
       storage: {
@@ -293,22 +299,24 @@ adminRouter.get(
 );
 
 adminRouter.get('/model', (_req, res) => {
-  const openaiEnabled = env.analysisMode === 'openai';
+  const demoMode = env.analysisMode === 'demo';
 
   res.json({
-    mode: env.analysisMode,
-    modo: env.analysisMode,
+    mode: publicAnalysisMode(env.analysisMode),
+    modo: publicAnalysisMode(env.analysisMode),
     model: {
-      name: openaiEnabled ? 'OpenAI Vision' : 'P.L.A.N.T.A. Vision Demo',
-      version: openaiEnabled ? env.openaiModel : '0.1.0-demo',
-      type: openaiEnabled ? 'OpenAI Responses API' : 'Motor simulado local',
+      name: publicModelName(env.analysisMode),
+      version: publicModelVersion(env.analysisMode),
+      type: demoMode ? 'Motor simulado del sistema' : publicAiIdentity.modelType,
       description:
-        openaiEnabled
-          ? 'Servicio de analisis visual con OpenAI configurado desde variables de entorno.'
-          : 'Servicio demo deterministico para sustentar el flujo del MVP sin depender de APIs externas.',
+        demoMode
+          ? 'Servicio demo deterministico para sustentar el flujo del MVP con datos controlados.'
+          : publicAiIdentity.description,
       futureReplacement:
-        'El archivo server/src/services/analysisService.js concentra la logica del motor demo y del motor OpenAI.',
-      configured: openaiEnabled ? Boolean(env.openaiApiKey) : true,
+        demoMode
+          ? 'Arquitectura preparada para activar FitoVision sin cambiar el flujo operativo.'
+          : publicAiIdentity.futureReplacement,
+      configured: env.analysisMode === 'openai' ? Boolean(env.openaiApiKey) : true,
       fallbackToDemo: env.openaiFallbackToDemo
     }
   });

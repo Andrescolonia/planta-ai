@@ -1,4 +1,4 @@
-import { AlertTriangle, Droplet, Inbox, Leaf, PlusCircle, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Inbox, Leaf, PlusCircle, Sparkles, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { DonutChart, StateLegend, WeeklyLineChart } from '../components/SimpleCharts';
@@ -60,9 +60,9 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       tone: 'bg-yellow-50 text-yellow-700'
     },
     {
-      label: 'Alertas de riego',
+      label: 'Alertas de cuidado',
       value: data.kpis.irrigationAlerts,
-      icon: Droplet,
+      icon: Sparkles,
       tone: 'bg-orange-50 text-orange-700'
     }
   ];
